@@ -2,8 +2,12 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'FormPilot AI - Context Engine & Operations Dashboard',
-  description: 'Context-Aware AI Form Filler & Multi-Agent Operations Copilot',
+  title: 'FormPilot AI | Intelligent Context-Aware Form Filling Platform',
+  description: 'Autonomous AI form filling copilot powered by your verified knowledge base documents and universal DOM reasoning.',
+  icons: {
+    icon: '/brand/logo-mark.png',
+    apple: '/brand/logo-mark.png',
+  }
 };
 
 export default function RootLayout({
@@ -13,7 +17,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="antialiased min-h-screen bg-slate-900 text-slate-100 flex flex-col">
+      <body className="antialiased min-h-screen bg-slate-50 text-slate-900 flex flex-col">
         {children}
       </body>
     </html>
