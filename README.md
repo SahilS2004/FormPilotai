@@ -1,9 +1,19 @@
 # FormPilot AI 🚀
 
-> **Autonomous Context-Aware AI Form Filler & Multi-Agent Operations Copilot**
-> Seamlessly bridges unstructured documents and dynamic web forms using intelligent document retrieval, persona tuning, autonomous reminder actions, bulk agent processing, and universal DOM reasoning.
+<div align="center">
+  <img src="apps/web/public/brand/logo-full.png" alt="FormPilot AI" width="380" />
+  <p><strong>Autonomous Context-Aware AI Form Filler & Multi-Agent Operations Copilot</strong></p>
+  <p>Seamlessly bridges unstructured documents and dynamic web forms using intelligent document retrieval, persona tuning, autonomous reminder actions, bulk agent processing, and universal DOM reasoning.</p>
+</div>
 
 ---
+
+## 🎨 Official Brand Identity & Design System
+
+FormPilot AI uses a clean, enterprise-grade white & brand navy/cyan visual design:
+- **Primary Navy Blue (`#11264F`)**: Authority, structure, and enterprise credibility.
+- **Vibrant Accent Cyan (`#00BAC6`)**: AI intelligence, active scope status, and energy.
+- **Pure White & Slate-50 Surfaces (`#FFFFFF` / `#F8FAFC`)**: High readability, modern whitespace, and crisp card borders.
 
 ## 🌟 The Vision
 
