@@ -212,6 +212,7 @@ export type BulkJobStatus =
   | 'cancelled';
 
 export type BulkItemStatus = 
+  | 'queued'
   | 'pending'
   | 'scanning'
   | 'processing'

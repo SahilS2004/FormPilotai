@@ -34,6 +34,7 @@ pnpm-debug.log*
 # Turborepo & Cache
 .turbo
 .cache
+*.tsbuildinfo
 
 # IDE & Editor files
 .vscode/
