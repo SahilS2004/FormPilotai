@@ -1,7 +1,7 @@
 # FormPilot AI 🚀
 
 <div align="center">
-  <img src="apps/web/public/brand/logo-full.png" alt="FormPilot AI" width="380" />
+  <img src="apps/web/public/brand/logo-full.png" alt="FormPilot AI" width="480" />
   <p><strong>Autonomous Context-Aware AI Form Filler & Multi-Agent Operations Copilot</strong></p>
   <p>Seamlessly bridges unstructured documents and dynamic web forms using intelligent document retrieval, persona tuning, autonomous reminder actions, bulk agent processing, and universal DOM reasoning.</p>
 </div>
