@@ -1,987 +1,521 @@
 'use client';
 
 import React, { useState } from 'react';
-import Image from 'next/image';
+import Link from 'next/link';
 import { 
   FileStack, 
   CalendarClock, 
   Bot, 
   History, 
   SlidersHorizontal, 
-  Plus, 
-  CheckCircle2, 
-  AlertTriangle, 
-  Sparkles, 
-  ExternalLink, 
-  Trash2, 
   ShieldCheck, 
-  Send,
-  Search,
-  FileText,
-  Clock,
-  ArrowRight,
+  Sparkles, 
+  ArrowRight, 
+  CheckCircle2, 
+  ExternalLink,
+  Zap,
+  Lock,
   Layers,
-  HelpCircle,
-  Pencil,
-  Check,
-  X,
   FileCheck2,
-  FolderOpen
+  ChevronRight,
+  Upload,
+  Cpu,
+  Eye,
+  Check,
+  Plane
 } from 'lucide-react';
-import { 
-  KBDocument, 
-  FormReminder, 
-  BulkFormJob, 
-  FormFillHistoryRecord, 
-  PersonaTone, 
-  DocumentRecommendation 
-} from '@formpilot/shared';
-import { 
-  documentsStore, 
-  remindersStore, 
-  bulkJobsStore, 
-  historyStore, 
-  promptConfigStore, 
-  gapRecommendationsStore 
-} from '@/lib/store';
 
-export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<'kb' | 'reminders' | 'bulk' | 'history' | 'settings'>('kb');
-  
-  // State for KB documents
-  const [docs, setDocs] = useState<KBDocument[]>(documentsStore);
-  const [searchDocQuery, setSearchDocQuery] = useState('');
-  const [editingDocId, setEditingDocId] = useState<string | null>(null);
-  const [editDescription, setEditDescription] = useState<string>('');
-  const [newDocName, setNewDocName] = useState('');
-  const [newDocDesc, setNewDocDesc] = useState('');
-  const [showAddDocModal, setShowAddDocModal] = useState(false);
-
-  // State for Reminders
-  const [reminders, setReminders] = useState<FormReminder[]>(remindersStore);
-  const [showAddReminderModal, setShowAddReminderModal] = useState(false);
-  const [reminderUrl, setReminderUrl] = useState('');
-  const [reminderTitle, setReminderTitle] = useState('');
-  const [reminderDeadline, setReminderDeadline] = useState('');
-  const [reminderPolicy, setReminderPolicy] = useState<'notify_only' | 'auto_fill_draft' | 'auto_submit'>('auto_submit');
-  const [reminderConfidence, setReminderConfidence] = useState(0.85);
-
-  // State for Bulk Job
-  const [bulkJobs, setBulkJobs] = useState<BulkFormJob[]>(bulkJobsStore);
-  const [bulkUrlsText, setBulkUrlsText] = useState('');
-  const [bulkAutoSubmit, setBulkAutoSubmit] = useState(false);
-  const [bulkJobName, setBulkJobName] = useState('');
-  const [isBulkRunning, setIsBulkRunning] = useState(false);
-
-  // State for Settings
-  const [tone, setTone] = useState<PersonaTone>(promptConfigStore.tone);
-  const [customPrompt, setCustomPrompt] = useState(promptConfigStore.customPromptAddons || '');
-  const [saveSuccessMessage, setSaveSuccessMessage] = useState(false);
-
-  // Handlers for Knowledge Base
-  const handleToggleDoc = (id: string) => {
-    setDocs((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, isEnabled: !d.isEnabled } : d))
-    );
-  };
-
-  const handleSaveDescription = (id: string) => {
-    setDocs((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, description: editDescription } : d))
-    );
-    setEditingDocId(null);
-  };
-
-  const handleAddDocument = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newDocName.trim()) return;
-
-    const newDoc: KBDocument = {
-      id: `doc_${Date.now()}`,
-      name: newDocName.endsWith('.pdf') ? newDocName : `${newDocName}.pdf`,
-      originalFilename: newDocName,
-      mimeType: 'application/pdf',
-      sizeBytes: 256000,
-      description: newDocDesc || 'Verified user credential document containing profile data.',
-      isEnabled: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    setDocs([newDoc, ...docs]);
-    setNewDocName('');
-    setNewDocDesc('');
-    setShowAddDocModal(false);
-  };
-
-  const handleDeleteDoc = (id: string) => {
-    setDocs(docs.filter((d) => d.id !== id));
-  };
-
-  // Handlers for Reminders
-  const handleAddReminder = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!reminderUrl.trim()) return;
-
-    let domain = 'custom-site.com';
-    try {
-      domain = new URL(reminderUrl).hostname;
-    } catch {}
-
-    const newRem: FormReminder = {
-      id: `rem_${Date.now()}`,
-      websiteUrl: reminderUrl,
-      domain,
-      title: reminderTitle || `${domain} Form Deadline`,
-      deadlineTimestamp: reminderDeadline ? new Date(reminderDeadline).toISOString() : new Date(Date.now() + 86400000 * 3).toISOString(),
-      reminderWindowMinutes: 120,
-      autoActionPolicy: reminderPolicy,
-      minConfidenceThreshold: reminderConfidence,
-      status: 'pending',
-      tone,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    setReminders([newRem, ...reminders]);
-    setReminderUrl('');
-    setReminderTitle('');
-    setShowAddReminderModal(false);
-  };
-
-  // Handlers for Bulk Runner
-  const handleStartBulkJob = () => {
-    const raw = bulkUrlsText.split('\n').map((u) => u.trim()).filter((u) => u.length > 0);
-    if (raw.length === 0) return;
-
-    setIsBulkRunning(true);
-    const newJob: BulkFormJob = {
-      id: `bulk_${Date.now()}`,
-      name: bulkJobName || `Batch Run - ${new Date().toLocaleTimeString()}`,
-      status: 'running',
-      autoSubmit: bulkAutoSubmit,
-      activeDocIds: docs.filter((d) => d.isEnabled).map((d) => d.id),
-      tone,
-      totalCount: raw.length,
-      completedCount: 0,
-      failedCount: 0,
-      createdAt: new Date().toISOString(),
-      urls: raw.map((u, i) => {
-        let domain = 'web-portal';
-        try { domain = new URL(u).hostname; } catch {}
-        return {
-          id: `item_${Date.now()}_${i}`,
-          url: u,
-          domain,
-          status: 'scanning',
-          formTitle: `${domain} Application Form`,
-          totalFieldsCount: 12,
-          filledFieldsCount: 0,
-          averageConfidence: 0.94
-        };
-      })
-    };
-
-    setBulkJobs([newJob, ...bulkJobs]);
-    setBulkUrlsText('');
-    setBulkJobName('');
-
-    setTimeout(() => {
-      setBulkJobs((prev) =>
-        prev.map((job) => {
-          if (job.id === newJob.id) {
-            return {
-              ...job,
-              status: 'completed',
-              completedCount: job.totalCount,
-              completedAt: new Date().toISOString(),
-              urls: job.urls.map((item) => ({
-                ...item,
-                status: bulkAutoSubmit ? 'submitted' : 'filled',
-                filledFieldsCount: item.totalFieldsCount
-              }))
-            };
-          }
-          return job;
-        })
-      );
-      setIsBulkRunning(false);
-    }, 3000);
-  };
-
-  const handleSaveSettings = () => {
-    promptConfigStore.tone = tone;
-    promptConfigStore.customPromptAddons = customPrompt;
-    setSaveSuccessMessage(true);
-    setTimeout(() => setSaveSuccessMessage(false), 3000);
-  };
-
-  const activeDocsCount = docs.filter((d) => d.isEnabled).length;
-  const filteredDocs = docs.filter((d) => 
-    d.name.toLowerCase().includes(searchDocQuery.toLowerCase()) || 
-    d.description.toLowerCase().includes(searchDocQuery.toLowerCase())
-  );
+export default function LandingPage() {
+  const [activeInteractiveTab, setActiveInteractiveTab] = useState<'heatmap' | 'reminders' | 'bulk'>('heatmap');
 
   return (
-    <div className="flex-1 flex flex-col bg-[#F8FAFC] text-slate-900 min-h-screen">
-      {/* Top Header Navbar */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col selection:bg-cyan-100 selection:text-cyan-900">
+      {/* 1. Header Navigation Bar */}
+      <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-18 flex items-center justify-between">
-          {/* Logo Brand Lockup */}
-          <div className="flex items-center gap-3">
-            <div className="relative flex items-center">
-              {/* Official Logo Full Lockup */}
-              <img 
-                src="/brand/logo-full.png" 
-                alt="FormPilot AI" 
-                className="h-10 w-auto object-contain"
-              />
-            </div>
-            <div className="hidden sm:flex items-center gap-1.5 ml-2 pl-3 border-l border-slate-200">
-              <span className="text-[11px] font-semibold text-navy-800 tracking-wide uppercase px-2 py-0.5 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700">
-                Context Engine
-              </span>
-            </div>
-          </div>
+          {/* Logo Brand */}
+          <Link href="/" className="flex items-center gap-3">
+            <img 
+              src="/brand/logo-full.png" 
+              alt="FormPilot AI" 
+              className="h-10 w-auto object-contain cursor-pointer"
+            />
+          </Link>
 
-          {/* Right Status Actions */}
-          <div className="flex items-center gap-3">
-            {/* Active Scope Pill */}
-            <div className="flex items-center gap-2 text-xs bg-slate-50 px-3.5 py-1.5 rounded-full border border-slate-200 text-slate-700 font-medium">
-              <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
-              Active Scope: <strong className="text-navy-800">{activeDocsCount} of {docs.length}</strong> Docs
-            </div>
-
-            {/* Extension Indicator */}
-            <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-600 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-xs">
-              <ShieldCheck size={14} className="text-cyan-600" />
-              <span>Extension Connected</span>
-            </div>
-
-            {/* GitHub Portal */}
+          {/* Desktop Nav Links */}
+          <nav className="hidden md:flex items-center gap-7 text-xs font-semibold text-slate-600">
+            <a href="#features" className="hover:text-navy-800 transition">Features</a>
+            <a href="#how-it-works" className="hover:text-navy-800 transition">How It Works</a>
+            <a href="#security" className="hover:text-navy-800 transition">Security & Privacy</a>
+            <a href="#extension" className="hover:text-navy-800 transition">Chrome Extension</a>
             <a 
               href="https://github.com/SahilS2004/FormPilotai" 
               target="_blank" 
               rel="noreferrer"
-              className="text-xs text-slate-600 hover:text-navy-800 transition font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100"
+              className="hover:text-navy-800 transition flex items-center gap-1 text-slate-500"
             >
-              GitHub <ExternalLink size={12} className="text-slate-400" />
+              GitHub <ExternalLink size={12} />
             </a>
+          </nav>
+
+          {/* Auth Action Buttons */}
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className="text-xs font-bold text-navy-800 hover:text-cyan-700 px-3.5 py-2 rounded-xl transition"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/login"
+              className="bg-navy-800 hover:bg-navy-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition hover:shadow flex items-center gap-2"
+            >
+              <span>Get Started Free</span>
+              <ArrowRight size={14} className="text-cyan-400" />
+            </Link>
           </div>
         </div>
       </header>
 
-      {/* Main Container Layout */}
-      <div className="max-w-7xl mx-auto px-6 py-8 flex-1 w-full flex flex-col lg:flex-row gap-8">
-        {/* Clean Sidebar Navigation */}
-        <aside className="w-full lg:w-64 shrink-0">
-          <nav className="bg-white border border-slate-200 rounded-2xl p-2.5 shadow-sm space-y-1">
-            <button
-              onClick={() => setActiveTab('kb')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left ${
-                activeTab === 'kb' 
-                  ? 'bg-navy-800 text-white shadow-sm' 
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-navy-800'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <FileStack size={18} className={activeTab === 'kb' ? 'text-cyan-400' : 'text-slate-400'} />
-                <span>Knowledge Base</span>
-              </div>
-              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                activeTab === 'kb' ? 'bg-navy-700 text-cyan-300' : 'bg-slate-100 text-slate-600'
-              }`}>
-                {docs.length}
-              </span>
-            </button>
+      {/* 2. Hero Section */}
+      <section className="relative pt-16 pb-20 overflow-hidden">
+        {/* Subtle background glow */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[350px] bg-gradient-to-tr from-cyan-100/60 to-navy-100/40 blur-3xl -z-10 rounded-full pointer-events-none" />
 
-            <button
-              onClick={() => setActiveTab('reminders')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left ${
-                activeTab === 'reminders' 
-                  ? 'bg-navy-800 text-white shadow-sm' 
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-navy-800'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <CalendarClock size={18} className={activeTab === 'reminders' ? 'text-cyan-400' : 'text-slate-400'} />
-                <span>Reminders & Auto-Action</span>
-              </div>
-              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                activeTab === 'reminders' ? 'bg-navy-700 text-cyan-300' : 'bg-slate-100 text-slate-600'
-              }`}>
-                {reminders.length}
-              </span>
-            </button>
+        <div className="max-w-7xl mx-auto px-6 text-center space-y-6">
+          {/* Eyebrow Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-800 text-xs font-bold shadow-2xs">
+            <Sparkles size={14} className="text-cyan-600" />
+            <span>FormPilot AI 2.0 • Autonomous Context Engine</span>
+          </div>
 
-            <button
-              onClick={() => setActiveTab('bulk')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left ${
-                activeTab === 'bulk' 
-                  ? 'bg-navy-800 text-white shadow-sm' 
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-navy-800'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <Bot size={18} className={activeTab === 'bulk' ? 'text-cyan-400' : 'text-slate-400'} />
-                <span>Bulk Multi-Site Runner</span>
-              </div>
-              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                activeTab === 'bulk' ? 'bg-navy-700 text-cyan-300' : 'bg-slate-100 text-slate-600'
-              }`}>
-                {bulkJobs.length}
-              </span>
-            </button>
+          {/* Main Headline */}
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-navy-800 tracking-tight max-w-4xl mx-auto leading-[1.12]">
+            Stop Re-typing Forms. <br />
+            <span className="bg-gradient-to-r from-navy-800 via-navy-700 to-cyan-600 bg-clip-text text-transparent">
+              Fill Any Web Form with Grounded Document AI.
+            </span>
+          </h1>
 
-            <button
-              onClick={() => setActiveTab('history')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left ${
-                activeTab === 'history' 
-                  ? 'bg-navy-800 text-white shadow-sm' 
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-navy-800'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <History size={18} className={activeTab === 'history' ? 'text-cyan-400' : 'text-slate-400'} />
-                <span>Form Fill History</span>
-              </div>
-              <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
-                activeTab === 'history' ? 'bg-navy-700 text-cyan-300' : 'bg-slate-100 text-slate-600'
-              }`}>
-                {historyStore.length}
-              </span>
-            </button>
+          {/* Subtitle */}
+          <p className="text-base sm:text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed font-normal">
+            FormPilot AI analyzes job applications, grant proposals, and government portals on the fly. Grounded strictly in your verified Knowledge Base—zero hallucinations, visual confidence heatmaps, and autonomous deadline execution.
+          </p>
 
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left ${
-                activeTab === 'settings' 
-                  ? 'bg-navy-800 text-white shadow-sm' 
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-navy-800'
-              }`}
+          {/* CTAs */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
+            <Link
+              href="/login"
+              className="w-full sm:w-auto bg-navy-800 hover:bg-navy-900 text-white text-sm font-bold px-7 py-3.5 rounded-xl shadow-md transition hover:shadow-lg flex items-center justify-center gap-2.5"
             >
-              <div className="flex items-center gap-3">
-                <SlidersHorizontal size={18} className={activeTab === 'settings' ? 'text-cyan-400' : 'text-slate-400'} />
-                <span>Persona & Directives</span>
-              </div>
-            </button>
-          </nav>
+              <span>Launch Web Workspace</span>
+              <ArrowRight size={16} className="text-cyan-400" />
+            </Link>
 
-          {/* Quick Help Card */}
-          <div className="mt-4 bg-white border border-slate-200 rounded-2xl p-4 text-xs text-slate-600 shadow-xs space-y-2.5">
-            <div className="flex items-center gap-2 text-navy-800 font-semibold">
-              <Sparkles size={15} className="text-cyan-600" />
-              <span>How It Works</span>
+            <Link
+              href="/dashboard"
+              className="w-full sm:w-auto bg-white hover:bg-slate-50 text-navy-800 border border-slate-300 text-sm font-bold px-7 py-3.5 rounded-xl shadow-2xs transition hover:shadow-xs flex items-center justify-center gap-2"
+            >
+              <Cpu size={16} className="text-cyan-600" />
+              <span>Explore Interactive Demo</span>
+            </Link>
+          </div>
+
+          {/* Social Proof Bar */}
+          <div className="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-500 font-medium">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 size={15} className="text-emerald-600" />
+              <span>Zero Hallucinations</span>
             </div>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              FormPilot matches active documents in your Knowledge Base to any webpage form, providing <strong>grounded answers</strong> and <strong>high-confidence fills</strong> with zero hallucinations.
+            <span className="hidden sm:inline">•</span>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 size={15} className="text-cyan-600" />
+              <span>Real-Time Citations</span>
+            </div>
+            <span className="hidden sm:inline">•</span>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 size={15} className="text-navy-800" />
+              <span>Strict Email Verification</span>
+            </div>
+            <span className="hidden sm:inline">•</span>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 size={15} className="text-emerald-600" />
+              <span>&lt; 3s Execution Speed</span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Product Visual Mockup Showcase */}
+        <div className="max-w-6xl mx-auto px-6 mt-12">
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden">
+            {/* Window Topbar */}
+            <div className="bg-slate-100/80 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 rounded-full bg-rose-400"></div>
+                <div className="w-3 h-3 rounded-full bg-amber-400"></div>
+                <div className="w-3 h-3 rounded-full bg-emerald-400"></div>
+                <span className="ml-2 text-xs font-mono text-slate-500 font-medium">
+                  https://jobs.lever.co/company/staff-software-engineer/apply
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+                <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
+                <span>FormPilot Copilot Active</span>
+              </div>
+            </div>
+
+            {/* Split Screen Showcase: Target Form on Left, FormPilot Extension on Right */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[440px]">
+              {/* Left: Target Form with Confidence Heatmap */}
+              <div className="lg:col-span-8 p-6 sm:p-8 bg-white border-r border-slate-200 space-y-5">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-700 bg-cyan-50 px-2.5 py-0.5 rounded-full border border-cyan-200">
+                    Live Form Analysis
+                  </span>
+                  <h3 className="text-lg font-bold text-navy-800">Application: Staff Software Engineer</h3>
+                  <p className="text-xs text-slate-500">Universal DOM parser automatically identified 6 inputs.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Field 1: High Confidence */}
+                  <div className="space-y-1 relative">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-navy-800">Full Name *</label>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <Zap size={10} /> 99% Confirmed
+                      </span>
+                    </div>
+                    <div className="p-2.5 bg-emerald-50/20 border-2 border-emerald-500 rounded-xl text-xs text-slate-800 font-medium">
+                      Sahil Sarawgi
+                    </div>
+                    <span className="text-[10px] text-slate-400 block">Cited from: Resume_2026.pdf (Page 1)</span>
+                  </div>
+
+                  {/* Field 2: High Confidence */}
+                  <div className="space-y-1 relative">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-navy-800">Email Address *</label>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <Zap size={10} /> 99% Confirmed
+                      </span>
+                    </div>
+                    <div className="p-2.5 bg-emerald-50/20 border-2 border-emerald-500 rounded-xl text-xs text-slate-800 font-medium">
+                      sahilsarawgi1239@gmail.com
+                    </div>
+                    <span className="text-[10px] text-slate-400 block">Verified primary contact</span>
+                  </div>
+
+                  {/* Field 3: High Confidence */}
+                  <div className="space-y-1 relative">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-navy-800">Phone Number *</label>
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <Zap size={10} /> 96% Confirmed
+                      </span>
+                    </div>
+                    <div className="p-2.5 bg-emerald-50/20 border-2 border-emerald-500 rounded-xl text-xs text-slate-800 font-medium">
+                      +91 9876543210
+                    </div>
+                    <span className="text-[10px] text-slate-400 block">Standard international format</span>
+                  </div>
+
+                  {/* Field 4: Amber Confidence */}
+                  <div className="space-y-1 relative">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-navy-800">Years of Experience</label>
+                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <Zap size={10} /> 85% Review
+                      </span>
+                    </div>
+                    <div className="p-2.5 bg-amber-50/20 border-2 border-amber-500 rounded-xl text-xs text-slate-800 font-medium">
+                      4+ Years (Fullstack & AI)
+                    </div>
+                    <span className="text-[10px] text-slate-400 block">Inferred from employment history</span>
+                  </div>
+                </div>
+
+                {/* Free Text Essay Field */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-navy-800">Why are you a fit for this role?</label>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                      ⚡ 92% Synthesized
+                    </span>
+                  </div>
+                  <div className="p-3 bg-emerald-50/15 border-2 border-emerald-500 rounded-xl text-xs text-slate-700 leading-relaxed font-normal">
+                    With over 4 years of engineering scalable TypeScript, Next.js, and autonomous multi-agent systems, I lead cross-functional architecture and deliver reliable production pipelines.
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: FormPilot Side Panel Simulation */}
+              <div className="lg:col-span-4 p-5 bg-slate-50 flex flex-col justify-between space-y-4">
+                <div className="space-y-4">
+                  {/* Sidepanel Header */}
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                    <div className="flex items-center gap-2">
+                      <img src="/brand/logo-mark.png" alt="Mark" className="w-6 h-6 object-contain" />
+                      <span className="font-extrabold text-xs text-navy-800 tracking-wide">
+                        FORM PILOT <span className="text-cyan-600">AI</span>
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-100 text-cyan-800">
+                      Side Panel
+                    </span>
+                  </div>
+
+                  {/* Primary Fill Form Button */}
+                  <div className="bg-navy-800 text-white rounded-xl p-3 flex items-center justify-center gap-2 text-xs font-bold shadow-sm">
+                    <Zap size={14} className="text-cyan-400" />
+                    <span>Form Successfully Filled</span>
+                  </div>
+
+                  {/* Active Document Scope Switcher */}
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold text-navy-800 uppercase tracking-wider block">
+                      Active Knowledge Base
+                    </span>
+                    <div className="space-y-2">
+                      <div className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs">
+                        <span className="text-xs font-medium text-navy-800 truncate max-w-[150px]">
+                          Resume_2026.pdf
+                        </span>
+                        <div className="w-8 h-4.5 bg-cyan-500 rounded-full flex items-center justify-end px-0.5">
+                          <div className="w-3.5 h-3.5 bg-white rounded-full"></div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs">
+                        <span className="text-xs font-medium text-navy-800 truncate max-w-[150px]">
+                          Tax_Return_1040.pdf
+                        </span>
+                        <div className="w-8 h-4.5 bg-cyan-500 rounded-full flex items-center justify-end px-0.5">
+                          <div className="w-3.5 h-3.5 bg-white rounded-full"></div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between opacity-60">
+                        <span className="text-xs font-medium text-slate-500 truncate max-w-[150px]">
+                          Passport_Scan.pdf
+                        </span>
+                        <div className="w-8 h-4.5 bg-slate-300 rounded-full flex items-center justify-start px-0.5">
+                          <div className="w-3.5 h-3.5 bg-white rounded-full"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Floating Micro-Prompt Bar */}
+                <div className="bg-white border border-slate-200 p-2.5 rounded-xl shadow-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-navy-800">
+                    <Sparkles size={12} className="text-cyan-600" />
+                    <span>In-Page Micro-Prompt Bar</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 italic bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+                    &quot;Make answer 3 more concise and emphasize Kubernetes&quot;
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. Core Features Grid */}
+      <section id="features" className="py-20 bg-white border-t border-slate-200">
+        <div className="max-w-7xl mx-auto px-6 space-y-12">
+          <div className="text-center max-w-2xl mx-auto space-y-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-cyan-700 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200">
+              Engine Capabilities
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-navy-800 tracking-tight">
+              Everything Needed for Zero-Effort Form Completion
+            </h2>
+            <p className="text-sm text-slate-600">
+              From individual job seeker portals to high-volume multi-site application pipelines.
             </p>
           </div>
-        </aside>
 
-        {/* Dynamic Main Workspace */}
-        <main className="flex-1 space-y-6">
-          {/* TAB 1: KNOWLEDGE BASE */}
-          {activeTab === 'kb' && (
-            <div className="space-y-6">
-              {/* Header Title & Upload Action */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-navy-800 tracking-tight">Document Knowledge Base</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Manage reference documents. Add semantic descriptions and toggle scope on or off for web form autofills.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowAddDocModal(true)}
-                  className="bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition hover:shadow"
-                >
-                  <Plus size={16} className="text-cyan-400" />
-                  <span>Upload Document</span>
-                </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Feature 1 */}
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 space-y-3 hover:border-cyan-400 transition hover:shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-navy-800 text-cyan-400 flex items-center justify-center font-bold">
+                <FileStack size={20} />
               </div>
-
-              {/* AI Gap Suggestions Banner */}
-              <div className="bg-gradient-to-r from-cyan-50/80 via-white to-white border border-cyan-200 rounded-2xl p-5 shadow-xs">
-                <div className="flex items-start gap-3.5">
-                  <div className="p-2 rounded-xl bg-cyan-500 text-white shadow-xs shrink-0 mt-0.5">
-                    <Sparkles size={16} />
-                  </div>
-                  <div className="flex-1 space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-xs font-bold text-navy-800 uppercase tracking-wider">AI Document Gap Recommender</h3>
-                      <span className="text-[10px] bg-cyan-100 text-cyan-800 font-semibold px-2 py-0.5 rounded-full">Automated Insight</span>
-                    </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      {gapRecommendationsStore[0]?.reason}
-                    </p>
-                    <div className="pt-1 flex flex-wrap items-center gap-2.5">
-                      <span className="text-xs font-semibold text-navy-800 bg-white px-2.5 py-1 rounded-lg border border-cyan-200 shadow-2xs">
-                        Recommended: <strong>{gapRecommendationsStore[0]?.missingDocumentName}</strong>
-                      </span>
-                      <span className="text-[11px] text-slate-500">
-                        Targeted Fields: {gapRecommendationsStore[0]?.targetedFields.join(', ')}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Search & Filter Bar */}
-              <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center gap-3 shadow-xs">
-                <Search size={16} className="text-slate-400 ml-2" />
-                <input
-                  type="text"
-                  placeholder="Search documents by name or semantic description..."
-                  value={searchDocQuery}
-                  onChange={(e) => setSearchDocQuery(e.target.value)}
-                  className="w-full bg-transparent border-none text-xs text-slate-800 outline-none placeholder:text-slate-400"
-                />
-              </div>
-
-              {/* Document List Cards */}
-              <div className="space-y-3.5">
-                {filteredDocs.map((doc) => (
-                  <div 
-                    key={doc.id}
-                    className={`bg-white rounded-2xl border p-5 transition-all shadow-xs hover:shadow-sm ${
-                      doc.isEnabled 
-                        ? 'border-slate-200 hover:border-cyan-300' 
-                        : 'border-slate-200/60 bg-slate-50/50 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-navy-50 text-navy-800 border border-navy-100 flex items-center justify-center shrink-0 mt-0.5">
-                          <FileText size={20} className="text-navy-800" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-sm text-navy-800">{doc.name}</h4>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 uppercase font-mono">
-                              {(doc.sizeBytes / 1024).toFixed(0)} KB
-                            </span>
-                            {doc.isEnabled ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                Active in Context
-                              </span>
-                            ) : (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
-                                Disabled
-                              </span>
-                            )}
-                          </div>
-                          
-                          {/* Semantic Description with Inline Editor */}
-                          {editingDocId === doc.id ? (
-                            <div className="mt-2 space-y-2">
-                              <textarea
-                                value={editDescription}
-                                onChange={(e) => setEditDescription(e.target.value)}
-                                className="w-full bg-white border border-cyan-400 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-200"
-                                rows={2}
-                                placeholder="Describe what data lives in this document to guide the AI..."
-                              />
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleSaveDescription(doc.id)}
-                                  className="bg-navy-800 text-white text-xs px-3 py-1.5 rounded-lg font-semibold hover:bg-navy-900 transition"
-                                >
-                                  Save Description
-                                </button>
-                                <button
-                                  onClick={() => setEditingDocId(null)}
-                                  className="text-xs text-slate-500 hover:text-slate-800 px-2 py-1 font-medium"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div 
-                              onClick={() => { setEditingDocId(doc.id); setEditDescription(doc.description); }}
-                              className="group flex items-start gap-1.5 text-xs text-slate-600 cursor-pointer pt-1"
-                              title="Click to edit semantic description"
-                            >
-                              <span className="font-semibold text-navy-800 shrink-0">Semantic Summary:</span>
-                              <p className="group-hover:text-cyan-700 transition leading-relaxed">
-                                {doc.description}
-                              </p>
-                              <Pencil size={12} className="text-slate-300 group-hover:text-cyan-600 shrink-0 mt-0.5 transition" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Enable/Disable Toggle & Actions */}
-                      <div className="flex items-center gap-3 shrink-0">
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            checked={doc.isEnabled}
-                            onChange={() => handleToggleDoc(doc.id)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
-                        </label>
-                        <button
-                          onClick={() => handleDeleteDoc(doc.id)}
-                          className="text-slate-400 hover:text-rose-600 transition p-2 rounded-lg hover:bg-slate-100"
-                          title="Remove document from KB"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: REMINDERS & AUTONOMOUS ACTION */}
-          {activeTab === 'reminders' && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-navy-800 tracking-tight flex items-center gap-2">
-                    Website Form Reminders & Autonomous Action
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200">
-                      Auto-Action Engine
-                    </span>
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Track deadline-driven forms. If you haven't reviewed before the deadline, our autonomous agent will auto-fill or auto-submit!
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowAddReminderModal(true)}
-                  className="bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition hover:shadow"
-                >
-                  <Plus size={16} className="text-cyan-400" />
-                  <span>Add Reminder</span>
-                </button>
-              </div>
-
-              <div className="space-y-3.5">
-                {reminders.map((rem) => (
-                  <div key={rem.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-sm transition space-y-3">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-sm text-navy-800">{rem.title}</h4>
-                          <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
-                            rem.autoActionPolicy === 'auto_submit'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
-                          }`}>
-                            Policy: {rem.autoActionPolicy.replace(/_/g, ' ')}
-                          </span>
-                        </div>
-                        <a 
-                          href={rem.websiteUrl} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          className="text-xs text-cyan-700 hover:text-cyan-900 font-medium hover:underline flex items-center gap-1"
-                        >
-                          {rem.websiteUrl} <ExternalLink size={11} />
-                        </a>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="text-[11px] text-slate-500 block">Target Deadline</span>
-                        <strong className="text-xs text-navy-800 font-semibold">
-                          {new Date(rem.deadlineTimestamp).toLocaleDateString()} at {new Date(rem.deadlineTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </strong>
-                      </div>
-                    </div>
-
-                    <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                      <div className="flex items-center gap-3">
-                        <span>Min Confidence Required: <strong className="text-navy-800 font-semibold">{Math.round(rem.minConfidenceThreshold * 100)}%</strong></span>
-                        <span>•</span>
-                        <span>Tone: <strong className="capitalize text-navy-800 font-semibold">{rem.tone}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
-                        <span className="text-cyan-800 font-semibold text-xs">Autonomous Agent Active</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: BULK MULTI-SITE RUNNER */}
-          {activeTab === 'bulk' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-bold text-navy-800 tracking-tight flex items-center gap-2">
-                  Bulk Multi-Site Form Queue Runner
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200">
-                    Fleet Dispatcher
-                  </span>
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Enter multiple website form links to dispatch autonomous agents to scan, reason, and fill all forms in parallel.
-                </p>
-              </div>
-
-              {/* Bulk Form Ingestion Card */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-navy-800 uppercase tracking-wider">
-                      Paste Form URLs (One per line)
-                    </label>
-                    <span className="text-[11px] text-slate-500">E.g., Greenhouse, Lever, Workday, Grant Portals</span>
-                  </div>
-                  <textarea
-                    value={bulkUrlsText}
-                    onChange={(e) => setBulkUrlsText(e.target.value)}
-                    placeholder={"https://jobs.lever.co/company/role-1\nhttps://boards.greenhouse.io/startup/role-2\nhttps://ashbyhq.com/org/role-3"}
-                    rows={4}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-900 font-mono focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-                  <div className="flex items-center gap-6">
-                    <label className="flex items-center gap-2 text-xs text-slate-700 font-medium cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={bulkAutoSubmit}
-                        onChange={(e) => setBulkAutoSubmit(e.target.checked)}
-                        className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
-                      />
-                      <span>Auto-Submit if Confidence $\ge 90\%$</span>
-                    </label>
-
-                    <div className="text-xs text-slate-500">
-                      Using active documents: <strong className="text-navy-800">{activeDocsCount} files</strong>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handleStartBulkJob}
-                    disabled={isBulkRunning || !bulkUrlsText.trim()}
-                    className="bg-navy-800 hover:bg-navy-900 disabled:opacity-50 text-white text-xs font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition hover:shadow"
-                  >
-                    <Send size={15} className="text-cyan-400" />
-                    <span>{isBulkRunning ? 'Agents Running...' : 'Launch Fleet Runner'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Active / Past Bulk Batches */}
-              <div className="space-y-3.5">
-                <h3 className="text-xs font-bold text-navy-800 uppercase tracking-wider">Recent Batch Runs</h3>
-                {bulkJobs.map((job) => (
-                  <div key={job.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-navy-50 text-navy-800">
-                          <Layers size={18} />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-sm text-navy-800">{job.name}</h4>
-                          <span className="text-xs text-slate-500">{job.urls.length} sites in execution queue</span>
-                        </div>
-                      </div>
-
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold capitalize">
-                        {job.status}
-                      </span>
-                    </div>
-
-                    {/* Progress Items */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {job.urls.map((item) => (
-                        <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-navy-800 truncate max-w-[150px]">{item.domain}</span>
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                              {item.status}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-slate-500 flex items-center justify-between">
-                            <span>Filled: {item.filledFieldsCount}/{item.totalFieldsCount}</span>
-                            <span>Conf: {Math.round((item.averageConfidence || 0.9) * 100)}%</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 4: FORM HISTORY & RECORDER */}
-          {activeTab === 'history' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-bold text-navy-800 tracking-tight">Form Fill History & Audit Log</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Inspect recorded web form submissions, questions asked, generated answers, and confidence indicators.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                {historyStore.map((record) => (
-                  <div key={record.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-sm text-navy-800">{record.formTitle}</h4>
-                          <span className="text-xs text-slate-500">({record.domain})</span>
-                        </div>
-                        <p className="text-xs text-slate-500">
-                          Submitted on {new Date(record.submittedAt).toLocaleDateString()} • Tone: <strong className="capitalize text-navy-800">{record.tone}</strong>
-                        </p>
-                      </div>
-
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200 font-bold">
-                        {record.filledFieldsCount} Fields Logged
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 pt-2 border-t border-slate-100">
-                      {record.fields.map((f, i) => (
-                        <div key={i} className="flex items-start justify-between text-xs py-2 border-b border-slate-100 last:border-0">
-                          <div className="space-y-0.5 max-w-lg">
-                            <span className="text-slate-500 block font-semibold">{f.question}</span>
-                            <span className="text-slate-800 block font-medium">{f.answer}</span>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                              ⚡ {Math.round(f.confidence * 100)}%
-                            </span>
-                            {f.wasEditedByUser && (
-                              <span className="block text-[10px] text-amber-700 font-semibold mt-0.5">User Edited</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: PERSONA & TONE SETTINGS */}
-          {activeTab === 'settings' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-bold text-navy-800 tracking-tight">Persona, Tone & System Directives</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Tune the voice of the FormPilot agent and supply custom user prompt add-ons.
-                </p>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
-                {/* Tone Presets */}
-                <div className="space-y-3">
-                  <label className="text-xs font-bold text-navy-800 uppercase tracking-wider block">
-                    Default Tone Preset
-                  </label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {[
-                      { id: 'professional', label: 'Professional', desc: 'Articulate, formal, executive' },
-                      { id: 'informative', label: 'Informative', desc: 'Factual, precise, concise' },
-                      { id: 'requesting', label: 'Requesting', desc: 'Polite, persuasive, petitioning' },
-                      { id: 'casual', label: 'Casual', desc: 'Approachable, relaxed, brief' }
-                    ].map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => setTone(item.id as PersonaTone)}
-                        className={`p-4 rounded-xl border text-left transition-all ${
-                          tone === item.id
-                            ? 'bg-navy-800 border-navy-800 text-white shadow-sm'
-                            : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
-                        }`}
-                      >
-                        <strong className="block text-sm font-bold capitalize">{item.label}</strong>
-                        <span className={`text-[11px] block mt-0.5 ${tone === item.id ? 'text-cyan-300' : 'text-slate-500'}`}>
-                          {item.desc}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* System Prompt Addons */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-navy-800 uppercase tracking-wider block">
-                    Custom System Prompt Directives (Appended to agent brain)
-                  </label>
-                  <textarea
-                    value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
-                    rows={4}
-                    placeholder="E.g., 'Always format phone numbers with international code +91. Prioritize remote work preference. Emphasize full-stack React and autonomous AI experience.'"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"
-                  />
-                  <p className="text-[11px] text-slate-500">
-                    These instructions persist across all autofill actions in both the web app batch runner and browser extension.
-                  </p>
-                </div>
-
-                {saveSuccessMessage && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-emerald-600" />
-                    <span>Persona settings saved successfully!</span>
-                  </div>
-                )}
-
-                <div className="pt-2">
-                  <button
-                    onClick={handleSaveSettings}
-                    className="bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-sm transition hover:shadow"
-                  >
-                    Save Persona & Prompt Directives
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
-
-      {/* MODAL: ADD DOCUMENT */}
-      {showAddDocModal && (
-        <div className="fixed inset-0 bg-navy-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-navy-800">Upload Reference Document</h3>
-              <button onClick={() => setShowAddDocModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X size={18} />
-              </button>
+              <h3 className="font-bold text-base text-navy-800">Multi-Document Knowledge Base</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Upload resumes, tax filings, diplomas, and IDs. Toggle documents on or off with 1 click to strictly scope what data is exposed to any given form.
+              </p>
             </div>
 
-            <form onSubmit={handleAddDocument} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Document Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Master_Degree_Transcript.pdf"
-                  value={newDocName}
-                  onChange={(e) => setNewDocName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"
-                />
+            {/* Feature 2 */}
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 space-y-3 hover:border-cyan-400 transition hover:shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-navy-800 text-cyan-400 flex items-center justify-center font-bold">
+                <CalendarClock size={20} />
               </div>
+              <h3 className="font-bold text-base text-navy-800">Deadline Reminders & Auto-Action</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Set deadline alerts for scholarship and grant portals. If unreviewed before the deadline, our autonomous agent automatically executes and submits!
+              </p>
+            </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Semantic Description (To guide the AI)</label>
-                <textarea
-                  placeholder="Describe what information this document contains (e.g. 'Contains GPA, degree title, and graduation year')..."
-                  value={newDocDesc}
-                  onChange={(e) => setNewDocDesc(e.target.value)}
-                  rows={3}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"
-                />
+            {/* Feature 3 */}
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 space-y-3 hover:border-cyan-400 transition hover:shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-navy-800 text-cyan-400 flex items-center justify-center font-bold">
+                <Bot size={20} />
               </div>
+              <h3 className="font-bold text-base text-navy-800">Bulk Multi-Site Runner</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Paste 20+ form URLs at once. A fleet of background agents visits each page, reasons over your KB, populates inputs, and generates batch reports.
+              </p>
+            </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddDocModal(false)}
-                  className="text-xs text-slate-500 hover:text-slate-700 px-3 py-2 font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2 rounded-xl"
-                >
-                  Add Document
-                </button>
+            {/* Feature 4 */}
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 space-y-3 hover:border-cyan-400 transition hover:shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-navy-800 text-cyan-400 flex items-center justify-center font-bold">
+                <Zap size={20} />
               </div>
-            </form>
+              <h3 className="font-bold text-base text-navy-800">Confidence Heatmap & Citations</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Filled fields are color-coded: 🟢 90%+ certainty, 🟡 needs review, 🔴 missing data. Click any badge to view the exact document passage citation.
+              </p>
+            </div>
+
+            {/* Feature 5 */}
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 space-y-3 hover:border-cyan-400 transition hover:shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-navy-800 text-cyan-400 flex items-center justify-center font-bold">
+                <Layers size={20} />
+              </div>
+              <h3 className="font-bold text-base text-navy-800">Multi-Step Form Navigator</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Detects multi-page wizards (&quot;Step 1 of 4&quot;), preserves input state across SPA route transitions, and navigates sequential pages seamlessly.
+              </p>
+            </div>
+
+            {/* Feature 6 */}
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-6 space-y-3 hover:border-cyan-400 transition hover:shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-navy-800 text-cyan-400 flex items-center justify-center font-bold">
+                <SlidersHorizontal size={20} />
+              </div>
+              <h3 className="font-bold text-base text-navy-800">Tone & Micro-Prompt Directives</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Configure default voice (Professional, Informative, Requesting, Casual) or issue on-the-fly conversational tweaks directly on the target webpage.
+              </p>
+            </div>
           </div>
         </div>
-      )}
+      </section>
 
-      {/* MODAL: ADD REMINDER */}
-      {showAddReminderModal && (
-        <div className="fixed inset-0 bg-navy-950/40 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-md space-y-4 shadow-xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-navy-800">Create Form Deadline Reminder</h3>
-              <button onClick={() => setShowAddReminderModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X size={18} />
-              </button>
+      {/* 5. How It Works Section */}
+      <section id="how-it-works" className="py-20 bg-[#F8FAFC]">
+        <div className="max-w-7xl mx-auto px-6 space-y-12">
+          <div className="text-center max-w-2xl mx-auto space-y-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-cyan-700 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200">
+              Simple 3-Step Flow
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-navy-800 tracking-tight">
+              How FormPilot AI Automates Your Workflow
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-white border border-slate-200 rounded-3xl p-7 shadow-xs space-y-4">
+              <span className="text-3xl font-black text-cyan-500 font-mono">01</span>
+              <h3 className="font-bold text-lg text-navy-800">Upload Your Documents</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Drop your resumes, official transcripts, tax declarations, and identity proof into your secure Knowledge Base vault. Add semantic tags so the AI knows what lives in each file.
+              </p>
             </div>
 
-            <form onSubmit={handleAddReminder} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Website Form URL</label>
-                <input
-                  type="url"
-                  required
-                  placeholder="https://grants.gov/apply/form-101"
-                  value={reminderUrl}
-                  onChange={(e) => setReminderUrl(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"
-                />
-              </div>
+            <div className="bg-white border border-slate-200 rounded-3xl p-7 shadow-xs space-y-4">
+              <span className="text-3xl font-black text-cyan-500 font-mono">02</span>
+              <h3 className="font-bold text-lg text-navy-800">Open Extension on Any Form</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Navigate to any website. Click the FormPilot extension side panel. The Universal DOM Analyzer traverses custom dropdowns, react inputs, and file upload fields instantly.
+              </p>
+            </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Title / Purpose</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Q4 Grant Application"
-                  value={reminderTitle}
-                  onChange={(e) => setReminderTitle(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Target Deadline</label>
-                <input
-                  type="datetime-local"
-                  value={reminderDeadline}
-                  onChange={(e) => setReminderDeadline(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700">Auto-Action Policy</label>
-                <select
-                  value={reminderPolicy}
-                  onChange={(e) => setReminderPolicy(e.target.value as any)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"
-                >
-                  <option value="auto_submit">Auto-Submit (if confidence meets threshold)</option>
-                  <option value="auto_fill_draft">Auto-Fill Draft (save draft state)</option>
-                  <option value="notify_only">Notify Only</option>
-                </select>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddReminderModal(false)}
-                  className="text-xs text-slate-500 hover:text-slate-700 px-3 py-2 font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2 rounded-xl"
-                >
-                  Create Reminder
-                </button>
-              </div>
-            </form>
+            <div className="bg-white border border-slate-200 rounded-3xl p-7 shadow-xs space-y-4">
+              <span className="text-3xl font-black text-cyan-500 font-mono">03</span>
+              <h3 className="font-bold text-lg text-navy-800">Review & Submit with Citations</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Inspect visual confidence highlights right on the form fields. Verify citations with a single hover, or adjust phrasing using the In-Page Micro-Prompt Bar.
+              </p>
+            </div>
           </div>
         </div>
-      )}
+      </section>
+
+      {/* 6. Security & Privacy Section */}
+      <section id="security" className="py-20 bg-white border-t border-slate-200">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="bg-navy-800 rounded-3xl p-8 sm:p-12 text-white relative overflow-hidden">
+            <div className="relative z-10 max-w-2xl space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-400/20 text-cyan-300 text-xs font-semibold">
+                <ShieldCheck size={14} className="text-cyan-400" />
+                <span>Enterprise Grade Security</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                Your Credentials. Your Vault. Zero Document Sale.
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                We enforce client-side PII protection and strict grounding policies. Your documents are used exclusively to reason over form fields you explicitly choose to fill—never sold, rented, or shared with third-party data brokers.
+              </p>
+              <div className="pt-2 flex flex-wrap gap-4 text-xs text-cyan-200 font-medium">
+                <span>✓ Client-Side PII Encryption</span>
+                <span>✓ Strict Anti-Hallucination Grounding</span>
+                <span>✓ Instant Scope Disabling</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 7. Bottom CTA Section */}
+      <section className="py-20 bg-[#F8FAFC] text-center">
+        <div className="max-w-4xl mx-auto px-6 space-y-6">
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-navy-800 tracking-tight">
+            Ready to Automate Your Next 100 Web Forms?
+          </h2>
+          <p className="text-sm text-slate-600 max-w-xl mx-auto">
+            Create your account today with a standard primary email and start experiencing context-grounded autofill in minutes.
+          </p>
+          <div className="pt-2 flex items-center justify-center gap-3">
+            <Link
+              href="/login"
+              className="bg-navy-800 hover:bg-navy-900 text-white text-sm font-bold px-8 py-3.5 rounded-xl shadow-md transition hover:shadow-lg flex items-center gap-2"
+            >
+              <span>Get Started Free</span>
+              <ArrowRight size={16} className="text-cyan-400" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* 8. Footer */}
+      <footer className="bg-white border-t border-slate-200 py-10">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <img src="/brand/logo-full.png" alt="FormPilot AI" className="h-8 w-auto object-contain" />
+          </div>
+          <p className="text-xs text-slate-500 font-medium">
+            © {new Date().getFullYear()} FormPilot AI. Grounded Context-Aware Operations.
+          </p>
+          <div className="flex items-center gap-4 text-xs font-semibold text-slate-500">
+            <Link href="/login" className="hover:text-navy-800 transition">Sign In</Link>
+            <Link href="/dashboard" className="hover:text-navy-800 transition">Workspace</Link>
+            <a 
+              href="https://github.com/SahilS2004/FormPilotai" 
+              target="_blank" 
+              rel="noreferrer"
+              className="hover:text-navy-800 transition"
+            >
+              GitHub
+            </a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
