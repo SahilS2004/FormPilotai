@@ -355,29 +355,66 @@ export default function DashboardPage() {
 
       {/* 2. Main Workspace Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Navbar Header */}
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-8 py-4.5 flex items-center justify-between shadow-2xs">
-          <div>
-            <h1 className="text-sm font-bold text-navy-800">
-              {activeTab === 'kb' && 'Document Knowledge Base'}
-              {activeTab === 'reminders' && 'Form Reminders & Auto-Action'}
-              {activeTab === 'bulk' && 'Bulk Multi-Site Runner'}
-              {activeTab === 'history' && 'Form Fill History & Audit'}
-              {activeTab === 'settings' && 'Persona & System Directives'}
-            </h1>
-            <span className="text-[11px] text-slate-500">Autonomous Form Completion Engine</span>
+        {/* Floating Thick Fogged-Glass Navbar Header */}
+        <header className="sticky top-4 sm:top-5 z-20 mx-4 sm:mx-6 lg:mx-8 mt-4 sm:mt-5 mb-2 px-6 sm:px-8 py-5 sm:py-6 min-h-[86px] sm:min-h-[94px] glass-fogged rounded-2xl sm:rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all">
+          <div className="flex items-center gap-3.5 sm:gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-50 to-navy-50 border border-cyan-200/80 flex items-center justify-center text-cyan-600 shadow-xs shrink-0">
+              {activeTab === 'kb' && <FileStack size={22} className="text-cyan-600" />}
+              {activeTab === 'reminders' && <CalendarClock size={22} className="text-cyan-600" />}
+              {activeTab === 'bulk' && <Bot size={22} className="text-cyan-600" />}
+              {activeTab === 'history' && <History size={22} className="text-cyan-600" />}
+              {activeTab === 'settings' && <SlidersHorizontal size={22} className="text-cyan-600" />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-base sm:text-lg lg:text-xl font-extrabold text-navy-800 tracking-tight">
+                  {activeTab === 'kb' && 'Document Knowledge Base'}
+                  {activeTab === 'reminders' && 'Form Reminders & Auto-Action'}
+                  {activeTab === 'bulk' && 'Bulk Multi-Site Runner'}
+                  {activeTab === 'history' && 'Form Fill History & Audit'}
+                  {activeTab === 'settings' && 'Persona & System Directives'}
+                </h1>
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-navy-50 text-navy-700 border border-navy-100">
+                  Live
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Autonomous Form Completion & Grounded Context Engine
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200 text-slate-600 font-medium">
-              <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
-              <span>Grounded Retrieval Engine</span>
+          <div className="flex items-center flex-wrap gap-3 self-end sm:self-auto">
+            {/* Active KB Scope Chip */}
+            <div className="hidden md:flex items-center gap-2 text-xs bg-white/70 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-slate-200/80 text-slate-700 font-semibold shadow-2xs">
+              <span className="text-slate-400 font-normal">Active Scope:</span>
+              <span className="text-cyan-700 font-bold">{activeDocsCount}/{docs.length} Docs</span>
+            </div>
+
+            {/* Persona Tone Chip */}
+            <div className="hidden xl:flex items-center gap-1.5 text-xs bg-slate-100/90 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-slate-200/80 text-slate-700 font-semibold">
+              <span className="text-slate-400 font-normal">Tone:</span>
+              <span className="capitalize text-navy-800 font-bold">{tone}</span>
+            </div>
+
+            {/* Retrieval Engine Status Indicator */}
+            <div className="flex items-center gap-2.5 text-xs bg-cyan-50/90 backdrop-blur-sm px-4 py-2 rounded-xl border border-cyan-200/90 text-cyan-900 font-semibold shadow-2xs">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
+              </span>
+              <span>Grounded Engine Ready</span>
+            </div>
+
+            {/* User Profile / Status Badge */}
+            <div className="w-10 h-10 rounded-xl bg-navy-800 text-cyan-300 font-extrabold text-xs flex items-center justify-center border border-navy-700 shadow-xs tracking-wider shrink-0 select-none">
+              FP
             </div>
           </div>
         </header>
 
         {/* Dynamic Workspace Container */}
-        <main className="p-6 sm:p-8 lg:p-10 max-w-6xl w-full mx-auto space-y-6">
+        <main className="p-4 sm:p-6 lg:p-8 pt-2 sm:pt-4 max-w-6xl w-full mx-auto space-y-6">
           {/* TAB 1: KNOWLEDGE BASE */}
           {activeTab === 'kb' && (
             <div className="space-y-6">
