@@ -323,12 +323,12 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Primary Submit Button */}
+            {/* Primary Submit Button with Lightup Effect */}
             <div className="pt-2">
               <button
                 type="submit"
                 disabled={isLoading || Boolean(emailError)}
-                className="w-full bg-navy-800 hover:bg-navy-900 disabled:opacity-50 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-sm transition hover:shadow flex items-center justify-center gap-2"
+                className="btn-lightup w-full bg-navy-800 hover:bg-navy-900 disabled:opacity-50 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-sm hover:shadow flex items-center justify-center gap-2"
               >
                 <span>{isLoading ? 'Authenticating...' : mode === 'signin' ? 'Sign In to Workspace' : 'Create Free Account'}</span>
                 <ArrowRight size={15} className="text-cyan-400" />
@@ -344,7 +344,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={handleDemoSignIn}
-              className="w-full bg-cyan-50 hover:bg-cyan-100 text-cyan-900 border border-cyan-200 text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2"
+              className="btn-lightup-subtle w-full bg-cyan-50 hover:bg-cyan-100 text-cyan-900 border border-cyan-200 text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2"
             >
               <Sparkles size={14} className="text-cyan-600" />
               <span>Instant 1-Click Demo Login</span>
