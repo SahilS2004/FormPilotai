@@ -22,23 +22,26 @@ import {
   Cpu,
   Eye,
   Check,
-  Plane
+  Plane,
+  Menu,
+  X
 } from 'lucide-react';
 
 export default function LandingPage() {
   const [activeInteractiveTab, setActiveInteractiveTab] = useState<'heatmap' | 'reminders' | 'bulk'>('heatmap');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col selection:bg-cyan-100 selection:text-cyan-900">
       {/* 1. Header Navigation Bar - Expanded Width with Lightup CTAs */}
       <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 transition-all">
-        <div className="max-w-[1540px] mx-auto px-6 sm:px-10 lg:px-12 h-20 flex items-center justify-between">
+        <div className="max-w-[1540px] mx-auto px-4 sm:px-8 lg:px-12 h-20 flex items-center justify-between">
           {/* Logo Brand */}
-          <Link href="/" className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 shrink-0">
             <img 
               src="/brand/logo-full.png" 
               alt="FormPilot AI" 
-              className="h-13 sm:h-14 w-auto object-contain cursor-pointer transition hover:opacity-95"
+              className="h-10 sm:h-12 md:h-14 w-auto object-contain cursor-pointer transition hover:opacity-95"
             />
           </Link>
 
@@ -51,7 +54,7 @@ export default function LandingPage() {
           </nav>
 
           {/* Auth Action Buttons with Click Lightup Effect */}
-          <div className="flex items-center gap-3.5">
+          <div className="hidden sm:flex items-center gap-3">
             <Link
               href="/login"
               className="btn-lightup-subtle text-xs font-bold text-navy-800 hover:text-cyan-800 px-4 py-2.5 rounded-xl border border-transparent hover:border-slate-200 transition"
@@ -66,7 +69,70 @@ export default function LandingPage() {
               <ArrowRight size={14} className="text-cyan-400" />
             </Link>
           </div>
+
+          {/* Mobile Menu Trigger Button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden p-2 rounded-xl text-navy-800 hover:bg-slate-100 transition"
+            aria-label="Toggle navigation menu"
+          >
+            {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden bg-white border-b border-slate-200 px-6 py-5 space-y-4 shadow-lg animate-fadeIn">
+            <nav className="flex flex-col space-y-3 text-sm font-semibold text-slate-700">
+              <a 
+                href="#features" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="hover:text-navy-800 py-1"
+              >
+                Features
+              </a>
+              <a 
+                href="#how-it-works" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="hover:text-navy-800 py-1"
+              >
+                How It Works
+              </a>
+              <a 
+                href="#security" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="hover:text-navy-800 py-1"
+              >
+                Security & Privacy
+              </a>
+              <a 
+                href="#extension" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="hover:text-navy-800 py-1"
+              >
+                Chrome Extension
+              </a>
+            </nav>
+
+            <div className="pt-3 border-t border-slate-100 flex flex-col gap-2.5">
+              <Link
+                href="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="btn-lightup-subtle text-center text-xs font-bold text-navy-800 py-2.5 rounded-xl border border-slate-200"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="btn-lightup text-center bg-navy-800 text-white text-xs font-bold py-2.5 rounded-xl shadow-xs flex items-center justify-center gap-2"
+              >
+                <span>Get Started Free</span>
+                <ArrowRight size={14} className="text-cyan-400" />
+              </Link>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* 2. Hero Section */}

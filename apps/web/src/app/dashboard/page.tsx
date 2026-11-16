@@ -27,7 +27,8 @@ import {
   ChevronRight,
   CheckSquare,
   Compass,
-  RotateCcw
+  RotateCcw,
+  Menu
 } from 'lucide-react';
 import OnboardingTour from '@/components/OnboardingTour';
 
@@ -62,6 +63,7 @@ export default function DashboardPage() {
   // Onboarding & Demo Checklist State
   const [completedMilestones, setCompletedMilestones] = useState<string[]>(['kb']);
   const [isTourOpen, setIsTourOpen] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -80,6 +82,7 @@ export default function DashboardPage() {
 
   const handleMilestoneClick = (tab: 'kb' | 'reminders' | 'bulk' | 'history' | 'settings', id: string) => {
     setActiveTab(tab);
+    setIsMobileNavOpen(false);
     if (!completedMilestones.includes(id)) {
       const updated = [...completedMilestones, id];
       setCompletedMilestones(updated);
@@ -278,8 +281,20 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col lg:flex-row">
-      {/* 1. Left-Stuck Sidebar */}
-      <aside className="w-full lg:w-72 bg-white border-r border-slate-200 lg:h-screen lg:sticky lg:top-0 flex flex-col justify-between shrink-0 z-30 shadow-2xs">
+      {/* Mobile Drawer Backdrop */}
+      {isMobileNavOpen && (
+        <div 
+          className="fixed inset-0 bg-navy-950/40 backdrop-blur-xs z-40 lg:hidden transition-opacity"
+          onClick={() => setIsMobileNavOpen(false)}
+        />
+      )}
+
+      {/* 1. Left Sidebar - Desktop Pinned, Mobile Slide-Out Drawer */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-72 bg-white border-r border-slate-200 flex flex-col justify-between shadow-2xl transition-transform duration-300 ease-in-out
+        lg:static lg:translate-x-0 lg:shadow-2xs lg:z-30 lg:h-screen lg:sticky lg:top-0
+        ${isMobileNavOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
         <div className="p-5 space-y-5 overflow-y-auto max-h-[calc(100vh-160px)]">
           {/* Logo Header at top of sidebar */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
@@ -287,9 +302,16 @@ export default function DashboardPage() {
               <img 
                 src="/brand/logo-full.png" 
                 alt="FormPilot AI" 
-                className="h-12 sm:h-13 w-auto object-contain cursor-pointer transition hover:opacity-90"
+                className="h-10 sm:h-12 w-auto object-contain cursor-pointer transition hover:opacity-90"
               />
             </Link>
+            <button
+              onClick={() => setIsMobileNavOpen(false)}
+              className="lg:hidden p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
+              aria-label="Close sidebar"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           {/* Navigation Links with Guided Tour Target IDs */}
@@ -494,19 +516,28 @@ export default function DashboardPage() {
 
       {/* 2. Main Workspace Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Floating Thick Fogged-Glass Navbar Header */}
-        <header className="sticky top-4 sm:top-5 z-20 mx-4 sm:mx-6 lg:mx-8 mt-4 sm:mt-5 mb-2 px-6 sm:px-8 py-5 sm:py-6 min-h-[86px] sm:min-h-[94px] glass-fogged rounded-2xl sm:rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all">
-          <div className="flex items-center gap-3.5 sm:gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-50 to-navy-50 border border-cyan-200/80 flex items-center justify-center text-cyan-600 shadow-xs shrink-0">
-              {activeTab === 'kb' && <FileStack size={22} className="text-cyan-600" />}
-              {activeTab === 'reminders' && <CalendarClock size={22} className="text-cyan-600" />}
-              {activeTab === 'bulk' && <Bot size={22} className="text-cyan-600" />}
-              {activeTab === 'history' && <History size={22} className="text-cyan-600" />}
-              {activeTab === 'settings' && <SlidersHorizontal size={22} className="text-cyan-600" />}
+        {/* Floating Thick Fogged-Glass Navbar Header - Responsive */}
+        <header className="sticky top-3 sm:top-4 lg:top-5 z-20 mx-3 sm:mx-6 lg:mx-8 mt-3 sm:mt-5 mb-2 px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 min-h-[72px] sm:min-h-[86px] glass-fogged rounded-2xl sm:rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 transition-all">
+          <div className="flex items-center gap-3 sm:gap-4">
+            {/* Mobile Sidebar Hamburger Toggle */}
+            <button
+              onClick={() => setIsMobileNavOpen(true)}
+              className="lg:hidden p-2 rounded-xl bg-white border border-slate-200 text-navy-800 shadow-2xs hover:bg-slate-50 transition shrink-0"
+              aria-label="Open sidebar menu"
+            >
+              <Menu size={18} />
+            </button>
+
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-cyan-50 to-navy-50 border border-cyan-200/80 flex items-center justify-center text-cyan-600 shadow-xs shrink-0">
+              {activeTab === 'kb' && <FileStack size={20} className="text-cyan-600" />}
+              {activeTab === 'reminders' && <CalendarClock size={20} className="text-cyan-600" />}
+              {activeTab === 'bulk' && <Bot size={20} className="text-cyan-600" />}
+              {activeTab === 'history' && <History size={20} className="text-cyan-600" />}
+              {activeTab === 'settings' && <SlidersHorizontal size={20} className="text-cyan-600" />}
             </div>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-base sm:text-lg lg:text-xl font-extrabold text-navy-800 tracking-tight">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-sm sm:text-base lg:text-lg font-extrabold text-navy-800 tracking-tight truncate">
                   {activeTab === 'kb' && 'Document Knowledge Base'}
                   {activeTab === 'reminders' && 'Form Reminders & Auto-Action'}
                   {activeTab === 'bulk' && 'Bulk Multi-Site Runner'}
@@ -517,7 +548,7 @@ export default function DashboardPage() {
                   Live
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 truncate max-w-[200px] sm:max-w-none">
                 Autonomous Form Completion & Grounded Context Engine
               </p>
             </div>
@@ -527,10 +558,11 @@ export default function DashboardPage() {
             {/* Guided Tour Trigger Button */}
             <button
               onClick={() => setIsTourOpen(true)}
-              className="btn-lightup-subtle hidden lg:flex items-center gap-1.5 text-xs bg-white/80 hover:bg-white text-navy-800 font-bold px-3 py-2 rounded-xl border border-cyan-200/90 shadow-2xs transition"
+              className="btn-lightup-subtle flex items-center gap-1.5 text-xs bg-white/80 hover:bg-white text-navy-800 font-bold px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border border-cyan-200/90 shadow-2xs transition"
             >
-              <Compass size={14} className="text-cyan-600 animate-spin-slow" />
-              <span>Guided Tour</span>
+              <Compass size={13} className="text-cyan-600 animate-spin-slow" />
+              <span className="hidden sm:inline">Guided Tour</span>
+              <span className="sm:hidden text-[11px]">Tour</span>
             </button>
 
             {/* Active KB Scope Chip */}
@@ -748,7 +780,7 @@ export default function DashboardPage() {
               <div className="space-y-3.5">
                 {reminders.map((rem) => (
                   <div key={rem.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-sm transition space-y-3">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <h4 className="font-bold text-sm text-navy-800">{rem.title}</h4>
@@ -770,7 +802,7 @@ export default function DashboardPage() {
                         </a>
                       </div>
 
-                      <div className="text-right">
+                      <div className="text-left sm:text-right">
                         <span className="text-[11px] text-slate-500 block">Target Deadline</span>
                         <strong suppressHydrationWarning className="text-xs text-navy-800 font-semibold">
                           {isMounted 
@@ -781,7 +813,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                    <div className="pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500">
                       <div className="flex items-center gap-3">
                         <span>Min Confidence Required: <strong className="text-navy-800 font-semibold">{Math.round(rem.minConfidenceThreshold * 100)}%</strong></span>
                         <span>•</span>
@@ -934,8 +966,8 @@ export default function DashboardPage() {
 
                     <div className="space-y-2 pt-2 border-t border-slate-100">
                       {record.fields.map((f, i) => (
-                        <div key={i} className="flex items-start justify-between text-xs py-2 border-b border-slate-100 last:border-0">
-                          <div className="space-y-0.5 max-w-lg">
+                        <div key={i} className="flex items-start justify-between gap-3 text-xs py-2 border-b border-slate-100 last:border-0">
+                          <div className="space-y-0.5 max-w-lg min-w-0 break-words">
                             <span className="text-slate-500 block font-semibold">{f.question}</span>
                             <span className="text-slate-800 block font-medium">{f.answer}</span>
                           </div>
@@ -972,7 +1004,7 @@ export default function DashboardPage() {
                   <label className="text-xs font-bold text-navy-800 uppercase tracking-wider block">
                     Default Tone Preset
                   </label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
                       { id: 'professional', label: 'Professional', desc: 'Articulate, formal, executive' },
                       { id: 'informative', label: 'Informative', desc: 'Factual, precise, concise' },
