@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { bulkJobsStore, documentsStore } from '@/lib/store';
+import { fetchAllBulkJobs, createBulkJobRecord } from '@/lib/db';
+import { documentsStore } from '@/lib/store';
 import { BulkFormJob, BulkFormItem } from '@formpilot/shared';
 
 export async function GET() {
+  const jobs = await fetchAllBulkJobs();
   return NextResponse.json({
-    jobs: bulkJobsStore
+    jobs
   });
 }
 
@@ -48,27 +50,14 @@ export async function POST(req: Request) {
       autoSubmit: Boolean(body.autoSubmit),
       activeDocIds,
       tone: body.tone || 'professional',
-      customPromptAddons: body.customPromptAddons || '',
       totalCount: items.length,
       completedCount: 0,
       failedCount: 0,
       createdAt: new Date().toISOString()
     };
 
-    bulkJobsStore.unshift(newJob);
-
-    // Simulate asynchronous batch agent processing
-    setTimeout(() => {
-      newJob.urls.forEach((item) => {
-        item.status = newJob.autoSubmit ? 'submitted' : 'filled';
-        item.filledFieldsCount = item.totalFieldsCount;
-      });
-      newJob.completedCount = newJob.totalCount;
-      newJob.status = 'completed';
-      newJob.completedAt = new Date().toISOString();
-    }, 4000);
-
-    return NextResponse.json({ job: newJob }, { status: 201 });
+    const savedJob = await createBulkJobRecord(newJob);
+    return NextResponse.json({ job: savedJob }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create bulk job' }, { status: 500 });
   }

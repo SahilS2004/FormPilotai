@@ -24,8 +24,20 @@ import {
   Pencil,
   X,
   FileCheck2,
-  ChevronRight
+  ChevronRight,
+  CheckSquare,
+  Compass,
+  RotateCcw
 } from 'lucide-react';
+import OnboardingTour from '@/components/OnboardingTour';
+
+const DEMO_MILESTONES = [
+  { id: 'kb', label: '1. Explore KB Scopes', sub: 'Enable docs & descriptions', tab: 'kb' as const },
+  { id: 'reminders', label: '2. Form Reminders', sub: 'Set auto-action policies', tab: 'reminders' as const },
+  { id: 'bulk', label: '3. Bulk Multi-Site', sub: 'Fleet form processing', tab: 'bulk' as const },
+  { id: 'history', label: '4. Fill History & Audit', sub: 'Confidence heatmaps', tab: 'history' as const },
+  { id: 'settings', label: '5. Persona & Tone', sub: 'System directives', tab: 'settings' as const },
+];
 import { 
   KBDocument, 
   FormReminder, 
@@ -45,11 +57,50 @@ import {
 
 export default function DashboardPage() {
   const [isMounted, setIsMounted] = useState(false);
+  const [activeTab, setActiveTab] = useState<'kb' | 'reminders' | 'bulk' | 'history' | 'settings'>('kb');
+  
+  // Onboarding & Demo Checklist State
+  const [completedMilestones, setCompletedMilestones] = useState<string[]>(['kb']);
+  const [isTourOpen, setIsTourOpen] = useState(false);
+
   useEffect(() => {
     setIsMounted(true);
+    try {
+      const savedMilestones = localStorage.getItem('formpilot_milestones');
+      if (savedMilestones) {
+        setCompletedMilestones(JSON.parse(savedMilestones));
+      }
+      const hasCompletedTour = localStorage.getItem('formpilot_tour_completed');
+      if (!hasCompletedTour) {
+        const timer = setTimeout(() => setIsTourOpen(true), 900);
+        return () => clearTimeout(timer);
+      }
+    } catch {}
   }, []);
 
-  const [activeTab, setActiveTab] = useState<'kb' | 'reminders' | 'bulk' | 'history' | 'settings'>('kb');
+  const handleMilestoneClick = (tab: 'kb' | 'reminders' | 'bulk' | 'history' | 'settings', id: string) => {
+    setActiveTab(tab);
+    if (!completedMilestones.includes(id)) {
+      const updated = [...completedMilestones, id];
+      setCompletedMilestones(updated);
+      try {
+        localStorage.setItem('formpilot_milestones', JSON.stringify(updated));
+        fetch('/api/onboarding', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stepKey: id })
+        }).catch(() => {});
+      } catch {}
+    }
+  };
+
+  const handleResetChecklist = () => {
+    const initial = ['kb'];
+    setCompletedMilestones(initial);
+    try {
+      localStorage.setItem('formpilot_milestones', JSON.stringify(initial));
+    } catch {}
+  };
   
   // State for KB documents
   const [docs, setDocs] = useState<KBDocument[]>(documentsStore);
@@ -229,7 +280,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col lg:flex-row">
       {/* 1. Left-Stuck Sidebar */}
       <aside className="w-full lg:w-72 bg-white border-r border-slate-200 lg:h-screen lg:sticky lg:top-0 flex flex-col justify-between shrink-0 z-30 shadow-2xs">
-        <div className="p-5 space-y-6">
+        <div className="p-5 space-y-5 overflow-y-auto max-h-[calc(100vh-160px)]">
           {/* Logo Header at top of sidebar */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <Link href="/" className="block">
@@ -241,10 +292,11 @@ export default function DashboardPage() {
             </Link>
           </div>
 
-          {/* Navigation Links */}
+          {/* Navigation Links with Guided Tour Target IDs */}
           <nav className="space-y-1.5">
             <button
-              onClick={() => setActiveTab('kb')}
+              id="tour-kb-nav"
+              onClick={() => handleMilestoneClick('kb', 'kb')}
               className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left ${
                 activeTab === 'kb' 
                   ? 'bg-navy-800 text-white shadow-sm' 
@@ -263,7 +315,8 @@ export default function DashboardPage() {
             </button>
 
             <button
-              onClick={() => setActiveTab('reminders')}
+              id="tour-reminders-nav"
+              onClick={() => handleMilestoneClick('reminders', 'reminders')}
               className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left ${
                 activeTab === 'reminders' 
                   ? 'bg-navy-800 text-white shadow-sm' 
@@ -282,7 +335,8 @@ export default function DashboardPage() {
             </button>
 
             <button
-              onClick={() => setActiveTab('bulk')}
+              id="tour-bulk-nav"
+              onClick={() => handleMilestoneClick('bulk', 'bulk')}
               className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left ${
                 activeTab === 'bulk' 
                   ? 'bg-navy-800 text-white shadow-sm' 
@@ -301,7 +355,8 @@ export default function DashboardPage() {
             </button>
 
             <button
-              onClick={() => setActiveTab('history')}
+              id="tour-history-nav"
+              onClick={() => handleMilestoneClick('history', 'history')}
               className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left ${
                 activeTab === 'history' 
                   ? 'bg-navy-800 text-white shadow-sm' 
@@ -320,7 +375,8 @@ export default function DashboardPage() {
             </button>
 
             <button
-              onClick={() => setActiveTab('settings')}
+              id="tour-settings-nav"
+              onClick={() => handleMilestoneClick('settings', 'settings')}
               className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left ${
                 activeTab === 'settings' 
                   ? 'bg-navy-800 text-white shadow-sm' 
@@ -333,6 +389,84 @@ export default function DashboardPage() {
               </div>
             </button>
           </nav>
+
+          {/* Initial Demo Checklist Widget for First-Time Users */}
+          <div className="pt-4 border-t border-slate-100 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <CheckSquare size={14} className="text-cyan-600" />
+                <span className="text-xs font-extrabold text-navy-800 tracking-tight">Demo Checklist</span>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200">
+                {completedMilestones.length}/5 Done
+              </span>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+              <div 
+                className="bg-gradient-to-r from-cyan-500 to-cyan-400 h-full rounded-full transition-all duration-500"
+                style={{ width: `${Math.round((completedMilestones.length / 5) * 100)}%` }}
+              />
+            </div>
+
+            {/* Checklist Items */}
+            <div className="space-y-1">
+              {DEMO_MILESTONES.map((item) => {
+                const isDone = completedMilestones.includes(item.id);
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleMilestoneClick(item.tab, item.id)}
+                    className={`w-full flex items-start gap-2.5 p-2 rounded-xl text-left transition group ${
+                      activeTab === item.tab 
+                        ? 'bg-slate-100/90 shadow-2xs' 
+                        : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      {isDone ? (
+                        <CheckCircle2 size={13} className="text-cyan-600 fill-cyan-50" />
+                      ) : (
+                        <div className="w-3 h-3 rounded-full border border-slate-300 group-hover:border-cyan-400 transition" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[11px] font-bold leading-tight ${
+                        isDone ? 'line-through text-slate-400' : 'text-navy-800'
+                      }`}>
+                        {item.label}
+                      </p>
+                      <span className="text-[9.5px] text-slate-500 block truncate">
+                        {item.sub}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Quick Tour Launcher & Reset */}
+            <div className="pt-2 flex items-center justify-between text-[11px] border-t border-slate-100">
+              <button
+                onClick={() => setIsTourOpen(true)}
+                className="text-cyan-700 hover:text-cyan-800 font-bold flex items-center gap-1 transition"
+              >
+                <Compass size={12} className="animate-spin-slow" />
+                <span>Guided Tour</span>
+              </button>
+              {completedMilestones.length === 5 && (
+                <button
+                  onClick={handleResetChecklist}
+                  className="text-slate-400 hover:text-slate-600 flex items-center gap-1 transition text-[10px]"
+                  title="Reset Demo Checklist"
+                >
+                  <RotateCcw size={10} />
+                  <span>Reset</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Bottom of Sidebar */}
@@ -390,6 +524,15 @@ export default function DashboardPage() {
           </div>
 
           <div className="flex items-center flex-wrap gap-3 self-end sm:self-auto">
+            {/* Guided Tour Trigger Button */}
+            <button
+              onClick={() => setIsTourOpen(true)}
+              className="btn-lightup-subtle hidden lg:flex items-center gap-1.5 text-xs bg-white/80 hover:bg-white text-navy-800 font-bold px-3 py-2 rounded-xl border border-cyan-200/90 shadow-2xs transition"
+            >
+              <Compass size={14} className="text-cyan-600 animate-spin-slow" />
+              <span>Guided Tour</span>
+            </button>
+
             {/* Active KB Scope Chip */}
             <div className="hidden md:flex items-center gap-2 text-xs bg-white/70 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-slate-200/80 text-slate-700 font-semibold shadow-2xs">
               <span className="text-slate-400 font-normal">Active Scope:</span>
@@ -1024,6 +1167,29 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* Guided Cursor Interactive Onboarding Tour for First-Time Users */}
+      <OnboardingTour
+        isOpen={isTourOpen}
+        onClose={() => setIsTourOpen(false)}
+        onStepChange={(tab) => {
+          handleMilestoneClick(tab, tab);
+        }}
+        onComplete={() => {
+          const all = ['kb', 'reminders', 'bulk', 'history', 'settings'];
+          setCompletedMilestones(all);
+          setIsTourOpen(false);
+          try {
+            localStorage.setItem('formpilot_milestones', JSON.stringify(all));
+            localStorage.setItem('formpilot_tour_completed', 'true');
+            fetch('/api/onboarding', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ stepKey: 'all_completed' })
+            }).catch(() => {});
+          } catch {}
+        }}
+      />
     </div>
   );
 }

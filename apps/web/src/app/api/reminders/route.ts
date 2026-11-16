@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
+import { fetchAllReminders, createReminderRecord } from '@/lib/db';
 import { remindersStore } from '@/lib/store';
 import { FormReminder } from '@formpilot/shared';
 
 export async function GET() {
+  const reminders = await fetchAllReminders();
   return NextResponse.json({
-    reminders: remindersStore
+    reminders
   });
 }
 
@@ -34,8 +36,8 @@ export async function POST(req: Request) {
       updatedAt: new Date().toISOString()
     };
 
-    remindersStore.unshift(newReminder);
-    return NextResponse.json({ reminder: newReminder }, { status: 201 });
+    const savedReminder = await createReminderRecord(newReminder);
+    return NextResponse.json({ reminder: savedReminder }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create reminder' }, { status: 500 });
   }
@@ -50,30 +52,11 @@ export async function PATCH(req: Request) {
     }
 
     if (status) reminder.status = status;
-    if (executionLog) {
-      reminder.executionLog = executionLog;
-      reminder.executedAt = new Date().toISOString();
-    }
+    if (executionLog) reminder.executionLog = executionLog;
     reminder.updatedAt = new Date().toISOString();
 
     return NextResponse.json({ reminder });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update reminder' }, { status: 500 });
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-    const index = remindersStore.findIndex((r) => r.id === id);
-    if (index === -1) {
-      return NextResponse.json({ error: 'Reminder not found' }, { status: 404 });
-    }
-
-    remindersStore.splice(index, 1);
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete reminder' }, { status: 500 });
   }
 }

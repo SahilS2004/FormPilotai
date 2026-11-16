@@ -63,6 +63,9 @@ Online forms—from job applications and grant requests to visa slots and vendor
 * **Tone & Persona Customizer**: Tailor response styles (`Requesting`, `Informative / Factual`, `Professional`, `Casual`).
 * **Custom System Prompt Add-ons**: Add custom user directives directly to the system prompt (e.g., *"Always emphasize 5 years of full-stack experience"*).
 * **Document Gap Recommendations**: Automatically identifies missing data and recommends specific documents to upload.
+* **🎯 First-Time Interactive Onboarding & Guided Cursor**:
+  * Step-by-step interactive product tour with a guided animated spotlight cursor.
+  * Interactive Left Sidebar Demo Checklist tracking initial milestones (KB scoping, reminders, bulk processing, audit heatmaps, persona tuning).
 * **⏰ Website Form Reminders & Autonomous Action**:
   * Set reminders for any website form URL with a target deadline and notification window.
   * **Auto-Action Policy**: If not manually reviewed before the deadline, an autonomous background agent navigates to the site, validates inputs against your KB, and auto-submits the form if confidence meets your safety threshold!
@@ -82,6 +85,51 @@ Online forms—from job applications and grant requests to visa slots and vendor
 * **📄 Dynamic Document Generator**: Detects `<input type="file">` prompts (e.g., *"Attach custom cover letter in PDF"*), generates a tailored markdown document, converts it to PDF on the fly, and prepares it for upload.
 
 ---
+
+## 🐳 Production Docker & PostgreSQL Setup
+
+FormPilot AI includes a containerized multi-stage Docker deployment with PostgreSQL persistence.
+
+### Quick Start with Docker Compose
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/SahilS2004/FormPilotai.git
+cd FormPilotai
+
+# 2. Boot PostgreSQL & Web Application in containers
+docker compose up -d --build
+
+# 3. Access the dashboard & API
+# Open http://localhost:3000 in your browser
+```
+
+### Services Included in `docker-compose.yml`:
+- **`postgres`** (PostgreSQL 16 Alpine):
+  - Database: `formpilot_db`
+  - Automated schema initialization & seed data via [`docker/init.sql`](file:///Users/sahilsarawgi/Desktop/Project/Newton-school/formpilotai/docker/init.sql)
+  - Persistent volume `pgdata`
+  - Health check polling `pg_isready`
+- **`web`** (FormPilot Next.js Web App):
+  - Multi-stage Node.js 20 Alpine container
+  - Pinned non-root `nextjs` execution
+  - Connects to Postgres via `DATABASE_URL` with automated fail-safe in-memory caching fallback
+
+---
+
+## 💻 Local Development (Without Docker)
+
+```bash
+# 1. Install dependencies across the monorepo
+pnpm install
+
+# 2. Start web application in development mode
+pnpm --filter @formpilot/web dev
+
+# 3. Build Chrome Extension
+pnpm --filter @formpilot/extension build
+# Load unpacked from apps/extension/dist in chrome://extensions
+```
 
 ## 📁 Repository Structure
 
