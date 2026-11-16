@@ -74,6 +74,7 @@ export default function DashboardPage() {
   const [userProfile, setUserProfile] = useState<UserInitialProfile | null>(null);
   const [isInitialInfoOpen, setIsInitialInfoOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState<'persona' | 'model' | 'profile' | 'extension' | 'appearance'>('persona');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isChecklistCollapsed, setIsChecklistCollapsed] = useState(false);
 
@@ -177,6 +178,25 @@ export default function DashboardPage() {
   };
 
   const handleMilestoneClick = (tab: 'kb' | 'reminders' | 'bulk' | 'history' | 'settings', id: string) => {
+    if (id === 'settings' || tab === 'settings') {
+      setSettingsInitialTab('persona');
+      setIsSettingsModalOpen(true);
+      setIsMobileNavOpen(false);
+      if (!completedMilestones.includes('settings')) {
+        const updated = [...completedMilestones, 'settings'];
+        setCompletedMilestones(updated);
+        try {
+          localStorage.setItem('formpilot_milestones', JSON.stringify(updated));
+          fetch('/api/onboarding', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stepKey: 'settings' })
+          }).catch(() => {});
+        } catch {}
+      }
+      return;
+    }
+
     setActiveTab(tab);
     setIsMobileNavOpen(false);
     if (!completedMilestones.includes(id)) {
@@ -494,17 +514,20 @@ export default function DashboardPage() {
 
             <button
               id="tour-settings-nav"
-              onClick={() => handleMilestoneClick('settings', 'settings')}
-              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left ${
-                activeTab === 'settings' 
-                  ? 'bg-navy-800 text-white shadow-sm' 
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-navy-800'
-              }`}
+              onClick={() => {
+                setSettingsInitialTab('persona');
+                setIsSettingsModalOpen(true);
+                handleMilestoneClick('settings', 'settings');
+              }}
+              className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-navy-800 dark:hover:text-white"
             >
               <div className="flex items-center gap-3">
-                <SlidersHorizontal size={18} className={activeTab === 'settings' ? 'text-cyan-400' : 'text-slate-400'} />
+                <SlidersHorizontal size={18} className="text-slate-400" />
                 <span>Persona & Directives</span>
               </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                Popup
+              </span>
             </button>
           </nav>
 
@@ -603,7 +626,10 @@ export default function DashboardPage() {
         {/* Bottom of Sidebar: Profile, Settings, Theme, and Sign Out Controls */}
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3 bg-slate-50/60 dark:bg-slate-850">
           <div 
-            onClick={() => setIsSettingsModalOpen(true)}
+            onClick={() => {
+              setSettingsInitialTab('profile');
+              setIsSettingsModalOpen(true);
+            }}
             className="flex items-center gap-3 p-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs hover:shadow-xs hover:border-cyan-300 dark:hover:border-cyan-600 transition cursor-pointer group"
             title="Open Profile & Settings"
           >
@@ -624,7 +650,10 @@ export default function DashboardPage() {
           {/* Quick Action Buttons: Profile, Settings, Theme, Sign Out */}
           <div className="grid grid-cols-4 gap-1.5">
             <button
-              onClick={() => setIsSettingsModalOpen(true)}
+              onClick={() => {
+                setSettingsInitialTab('profile');
+                setIsSettingsModalOpen(true);
+              }}
               className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-navy-800 dark:hover:text-white hover:border-cyan-400 transition flex items-center justify-center shadow-2xs"
               title="Profile details"
             >
@@ -632,9 +661,12 @@ export default function DashboardPage() {
             </button>
 
             <button
-              onClick={() => setIsSettingsModalOpen(true)}
+              onClick={() => {
+                setSettingsInitialTab('persona');
+                setIsSettingsModalOpen(true);
+              }}
               className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-navy-800 dark:hover:text-white hover:border-cyan-400 transition flex items-center justify-center shadow-2xs"
-              title="Agent settings & API key"
+              title="Persona, tone & model settings"
             >
               <Settings size={14} />
             </button>
@@ -660,17 +692,16 @@ export default function DashboardPage() {
 
       {/* 2. Main Workspace Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Floating Thick Fogged-Glass Navbar Header - Responsive & Cleaned */}
-        <header className="sticky top-3 sm:top-4 lg:top-5 z-20 mx-3 sm:mx-6 lg:mx-8 mt-3 sm:mt-5 mb-2 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 min-h-[68px] sm:min-h-[76px] glass-fogged rounded-2xl sm:rounded-3xl flex items-center justify-between gap-3 sm:gap-4 transition-all">
+        {/* Floating Thick Fogged-Glass Navbar Header - Clean & Minimalist */}
+        <header className="sticky top-3 sm:top-4 lg:top-5 z-20 mx-3 sm:mx-6 lg:mx-8 mt-3 sm:mt-5 mb-2 px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4 min-h-[68px] sm:min-h-[76px] glass-fogged rounded-2xl sm:rounded-3xl flex items-center justify-between gap-3 sm:gap-4 transition-all">
           
-          {/* Left: Section Icon & Title */}
+          {/* Left: Section Icon & Title (Informative Display) */}
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-cyan-50 to-navy-50 dark:from-slate-800 dark:to-slate-800 border border-cyan-200/80 dark:border-slate-700 flex items-center justify-center text-cyan-600 shadow-xs shrink-0">
               {activeTab === 'kb' && <FileStack size={20} className="text-cyan-600" />}
               {activeTab === 'reminders' && <CalendarClock size={20} className="text-cyan-600" />}
               {activeTab === 'bulk' && <Bot size={20} className="text-cyan-600" />}
               {activeTab === 'history' && <History size={20} className="text-cyan-600" />}
-              {activeTab === 'settings' && <SlidersHorizontal size={20} className="text-cyan-600" />}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
@@ -679,7 +710,6 @@ export default function DashboardPage() {
                   {activeTab === 'reminders' && 'Form Reminders & Auto-Action'}
                   {activeTab === 'bulk' && 'Bulk Multi-Site Runner'}
                   {activeTab === 'history' && 'Form Fill History & Audit'}
-                  {activeTab === 'settings' && 'Persona & System Directives'}
                 </h1>
                 <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-navy-50 dark:bg-slate-800 text-navy-700 dark:text-slate-300 border border-navy-100 dark:border-slate-700">
                   Live
@@ -691,49 +721,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Right: Clean Action Controls (Guided Tour, Theme, Settings, Profile, and Mobile Hamburger) */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Guided Tour Trigger Button */}
-            <button
-              onClick={() => setIsTourOpen(true)}
-              className="btn-lightup-subtle flex items-center gap-1.5 text-xs bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-navy-800 dark:text-white font-bold px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border border-cyan-200/90 dark:border-slate-700 shadow-2xs transition"
-              title="Launch interactive tour"
-            >
-              <Compass size={13} className="text-cyan-600 animate-spin-slow" />
-              <span className="hidden sm:inline">Guided Tour</span>
-              <span className="sm:hidden text-[11px]">Tour</span>
-            </button>
-
-            {/* Quick Theme Toggle Button */}
-            <button
-              onClick={handleToggleTheme}
-              className="p-2 sm:p-2.5 rounded-xl bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition shadow-2xs"
-              title={isDarkMode ? "Switch to Light mode" : "Switch to Dark mode"}
-              aria-label="Toggle theme"
-            >
-              {isDarkMode ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-navy-700" />}
-            </button>
-
-            {/* Settings Button */}
-            <button
-              onClick={() => setIsSettingsModalOpen(true)}
-              className="p-2 sm:p-2.5 rounded-xl bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition shadow-2xs"
-              title="Open Settings & Model Config"
-              aria-label="Settings"
-            >
-              <Settings size={15} className="text-slate-600 dark:text-slate-300" />
-            </button>
-
-            {/* User Profile Button */}
-            <button
-              onClick={() => setIsSettingsModalOpen(true)}
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-navy-800 dark:bg-cyan-600 text-cyan-300 dark:text-white font-extrabold text-xs flex items-center justify-center border border-navy-700 dark:border-cyan-500 shadow-xs tracking-wider shrink-0 select-none hover:ring-2 hover:ring-cyan-400 transition"
-              title="Profile & Settings"
-            >
-              {user?.name ? user.name.slice(0, 2).toUpperCase() : 'FP'}
-            </button>
-
-            {/* Mobile Sidebar Hamburger Toggle - Moved to Right of Navbar */}
+          {/* Right: Clean Navbar - Mobile drawer toggle only; completely clean with no clickable buttons on desktop */}
+          <div className="flex items-center shrink-0">
             <button
               onClick={() => setIsMobileNavOpen(true)}
               className="lg:hidden p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-navy-800 dark:text-white shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-700 transition shrink-0"
@@ -1215,83 +1204,6 @@ export default function DashboardPage() {
               </div>
             </div>
           )}
-
-          {/* TAB 5: PERSONA & TONE SETTINGS */}
-          {activeTab === 'settings' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-bold text-navy-800 tracking-tight">Persona, Tone & System Directives</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Tune the voice of the FormPilot agent and supply custom user prompt add-ons.
-                </p>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-6">
-                {/* Tone Presets */}
-                <div className="space-y-3">
-                  <label className="text-xs font-bold text-navy-800 uppercase tracking-wider block">
-                    Default Tone Preset
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {[
-                      { id: 'professional', label: 'Professional', desc: 'Articulate, formal, executive' },
-                      { id: 'informative', label: 'Informative', desc: 'Factual, precise, concise' },
-                      { id: 'requesting', label: 'Requesting', desc: 'Polite, persuasive, petitioning' },
-                      { id: 'casual', label: 'Casual', desc: 'Approachable, relaxed, brief' }
-                    ].map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => setTone(item.id as PersonaTone)}
-                        className={`p-4 rounded-xl border text-left transition-all ${
-                          tone === item.id
-                            ? 'bg-navy-800 border-navy-800 text-white shadow-sm'
-                            : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
-                        }`}
-                      >
-                        <strong className="block text-sm font-bold capitalize">{item.label}</strong>
-                        <span className={`text-[11px] block mt-0.5 ${tone === item.id ? 'text-cyan-300' : 'text-slate-500'}`}>
-                          {item.desc}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* System Prompt Addons */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-navy-800 uppercase tracking-wider block">
-                    Custom System Prompt Directives (Appended to agent brain)
-                  </label>
-                  <textarea
-                    value={customPrompt}
-                    onChange={(e) => setCustomPrompt(e.target.value)}
-                    rows={4}
-                    placeholder="E.g., 'Always format phone numbers in standard international format (+1 or E.164). Prioritize remote work preference. Emphasize full-stack React and autonomous AI experience.'"
-                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"
-                  />
-                  <p className="text-[11px] text-slate-500">
-                    These instructions persist across all autofill actions in both the web app batch runner and browser extension.
-                  </p>
-                </div>
-
-                {saveSuccessMessage && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold flex items-center gap-2">
-                    <CheckCircle2 size={16} className="text-emerald-600" />
-                    <span>Persona settings saved successfully!</span>
-                  </div>
-                )}
-
-                <div className="pt-2">
-                  <button
-                    onClick={handleSaveSettings}
-                    className="btn-lightup bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-sm transition hover:shadow"
-                  >
-                    Save Persona & Prompt Directives
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </main>
       </div>
 
@@ -1469,6 +1381,7 @@ export default function DashboardPage() {
       <SettingsProfileModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
+        initialTab={settingsInitialTab}
         user={user}
         currentTone={tone}
         onToneChange={(newTone) => {
@@ -1478,6 +1391,11 @@ export default function DashboardPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tone: newTone })
           }).catch(() => {});
+        }}
+        customPrompt={customPrompt}
+        onPromptDirectivesChange={(directives) => {
+          setCustomPrompt(directives);
+          promptConfigStore.customPromptAddons = directives;
         }}
         userProfile={userProfile}
         onProfileUpdate={(updatedProfile) => {
