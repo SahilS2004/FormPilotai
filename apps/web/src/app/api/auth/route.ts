@@ -5,8 +5,8 @@ import { validateEmail, validatePassword, AuthUser } from '@/lib/auth';
 const usersDatabase: Array<{ id: string; name: string; email: string; passwordHash: string }> = [
   {
     id: 'usr_demo_1',
-    name: 'Sahil Sarawgi',
-    email: 'sahilsarawgi1239@gmail.com',
+    name: 'Demo Pilot',
+    email: 'demo@formpilot.ai',
     passwordHash: 'DemoPassword123!'
   }
 ];

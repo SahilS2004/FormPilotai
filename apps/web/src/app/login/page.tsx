@@ -115,7 +115,7 @@ export default function LoginPage() {
   };
 
   const handleDemoSignIn = () => {
-    setEmail('sahilsarawgi1239@gmail.com');
+    setEmail('demo@formpilot.ai');
     setPassword('DemoPassword123!');
     setEmailError(null);
     setPasswordError(null);
@@ -126,8 +126,8 @@ export default function LoginPage() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('formpilot_user', JSON.stringify({
           id: 'usr_demo_1',
-          name: 'Sahil Sarawgi',
-          email: 'sahilsarawgi1239@gmail.com',
+          name: 'Demo Pilot',
+          email: 'demo@formpilot.ai',
           role: 'user'
         }));
         localStorage.setItem('formpilot_token', 'fpt_demo_session_active');
@@ -219,7 +219,7 @@ export default function LoginPage() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Sahil Sarawgi"
+                    placeholder="e.g. Alex Morgan"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl py-2.5 pl-10 pr-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"

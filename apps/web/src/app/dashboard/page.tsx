@@ -616,30 +616,32 @@ export default function DashboardPage() {
               </div>
 
               {/* AI Gap Suggestions Banner */}
-              <div className="bg-gradient-to-r from-cyan-50/80 via-white to-white border border-cyan-200 rounded-2xl p-5 shadow-xs">
-                <div className="flex items-start gap-3.5">
-                  <div className="p-2 rounded-xl bg-cyan-500 text-white shadow-xs shrink-0 mt-0.5">
-                    <Sparkles size={16} />
-                  </div>
-                  <div className="flex-1 space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-xs font-bold text-navy-800 uppercase tracking-wider">AI Document Gap Recommender</h3>
-                      <span className="text-[10px] bg-cyan-100 text-cyan-800 font-semibold px-2 py-0.5 rounded-full">Automated Insight</span>
+              {gapRecommendationsStore.length > 0 && (
+                <div className="bg-gradient-to-r from-cyan-50/80 via-white to-white border border-cyan-200 rounded-2xl p-5 shadow-xs">
+                  <div className="flex items-start gap-3.5">
+                    <div className="p-2 rounded-xl bg-cyan-500 text-white shadow-xs shrink-0 mt-0.5">
+                      <Sparkles size={16} />
                     </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      {gapRecommendationsStore[0]?.reason}
-                    </p>
-                    <div className="pt-1 flex flex-wrap items-center gap-2.5">
-                      <span className="text-xs font-semibold text-navy-800 bg-white px-2.5 py-1 rounded-lg border border-cyan-200 shadow-2xs">
-                        Recommended: <strong>{gapRecommendationsStore[0]?.missingDocumentName}</strong>
-                      </span>
-                      <span className="text-[11px] text-slate-500">
-                        Targeted Fields: {gapRecommendationsStore[0]?.targetedFields.join(', ')}
-                      </span>
+                    <div className="flex-1 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xs font-bold text-navy-800 uppercase tracking-wider">AI Document Gap Recommender</h3>
+                        <span className="text-[10px] bg-cyan-100 text-cyan-800 font-semibold px-2 py-0.5 rounded-full">Automated Insight</span>
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed">
+                        {gapRecommendationsStore[0]?.reason}
+                      </p>
+                      <div className="pt-1 flex flex-wrap items-center gap-2.5">
+                        <span className="text-xs font-semibold text-navy-800 bg-white px-2.5 py-1 rounded-lg border border-cyan-200 shadow-2xs">
+                          Recommended: <strong>{gapRecommendationsStore[0]?.missingDocumentName}</strong>
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          Targeted Fields: {gapRecommendationsStore[0]?.targetedFields.join(', ')}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Search & Filter Bar */}
               <div className="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center gap-3 shadow-xs">
@@ -655,100 +657,126 @@ export default function DashboardPage() {
 
               {/* Document List Cards */}
               <div className="space-y-3.5">
-                {filteredDocs.map((doc) => (
-                  <div 
-                    key={doc.id}
-                    className={`bg-white rounded-2xl border p-5 transition-all shadow-xs hover:shadow-sm ${
-                      doc.isEnabled 
-                        ? 'border-slate-200 hover:border-cyan-300' 
-                        : 'border-slate-200/60 bg-slate-50/50 opacity-60'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-navy-50 text-navy-800 border border-navy-100 flex items-center justify-center shrink-0 mt-0.5">
-                          <FileText size={20} className="text-navy-800" />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-bold text-sm text-navy-800">{doc.name}</h4>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 uppercase font-mono">
-                              {(doc.sizeBytes / 1024).toFixed(0)} KB
-                            </span>
-                            {doc.isEnabled ? (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                Active in Context
+                {filteredDocs.length === 0 ? (
+                  <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center space-y-4 shadow-2xs">
+                    <div className="w-14 h-14 rounded-2xl bg-cyan-50 text-cyan-600 border border-cyan-100 flex items-center justify-center mx-auto shadow-2xs">
+                      <FileText size={26} />
+                    </div>
+                    <div className="max-w-md mx-auto space-y-1">
+                      <h3 className="text-base font-bold text-navy-800">No documents in your Knowledge Base</h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        {searchDocQuery 
+                          ? `No documents matched "${searchDocQuery}". Try a different search query or clear the filter.` 
+                          : 'Upload resumes, project sheets, or certifications. FormPilot references these grounded files to auto-fill web forms with verified citations.'
+                        }
+                      </p>
+                    </div>
+                    {!searchDocQuery && (
+                      <button
+                        onClick={() => setShowAddDocModal(true)}
+                        className="btn-lightup inline-flex items-center gap-2 bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xs transition"
+                      >
+                        <Plus size={15} className="text-cyan-400" />
+                        <span>Upload Your First Document</span>
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  filteredDocs.map((doc) => (
+                    <div 
+                      key={doc.id}
+                      className={`bg-white rounded-2xl border p-5 transition-all shadow-xs hover:shadow-sm ${
+                        doc.isEnabled 
+                          ? 'border-slate-200 hover:border-cyan-300' 
+                          : 'border-slate-200/60 bg-slate-50/50 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-4">
+                          <div className="w-10 h-10 rounded-xl bg-navy-50 text-navy-800 border border-navy-100 flex items-center justify-center shrink-0 mt-0.5">
+                            <FileText size={20} className="text-navy-800" />
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-sm text-navy-800">{doc.name}</h4>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600 uppercase font-mono">
+                                {(doc.sizeBytes / 1024).toFixed(0)} KB
                               </span>
+                              {doc.isEnabled ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  Active in Context
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                                  Disabled
+                                </span>
+                              )}
+                            </div>
+                            
+                            {/* Semantic Description with Inline Editor */}
+                            {editingDocId === doc.id ? (
+                              <div className="mt-2 space-y-2">
+                                <textarea
+                                  value={editDescription}
+                                  onChange={(e) => setEditDescription(e.target.value)}
+                                  className="w-full bg-white border border-cyan-400 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-200"
+                                  rows={2}
+                                  placeholder="Describe what data lives in this document to guide the AI..."
+                                />
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleSaveDescription(doc.id)}
+                                    className="bg-navy-800 text-white text-xs px-3 py-1.5 rounded-lg font-semibold hover:bg-navy-900 transition"
+                                  >
+                                    Save Description
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingDocId(null)}
+                                    className="text-xs text-slate-500 hover:text-slate-800 px-2 py-1 font-medium"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
                             ) : (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
-                                Disabled
-                              </span>
+                              <div 
+                                onClick={() => { setEditingDocId(doc.id); setEditDescription(doc.description); }}
+                                className="group flex items-start gap-1.5 text-xs text-slate-600 cursor-pointer pt-1"
+                                title="Click to edit semantic description"
+                              >
+                                <span className="font-semibold text-navy-800 shrink-0">Semantic Summary:</span>
+                                <p className="group-hover:text-cyan-700 transition leading-relaxed">
+                                  {doc.description}
+                                </p>
+                                <Pencil size={12} className="text-slate-300 group-hover:text-cyan-600 shrink-0 mt-0.5 transition" />
+                              </div>
                             )}
                           </div>
-                          
-                          {/* Semantic Description with Inline Editor */}
-                          {editingDocId === doc.id ? (
-                            <div className="mt-2 space-y-2">
-                              <textarea
-                                value={editDescription}
-                                onChange={(e) => setEditDescription(e.target.value)}
-                                className="w-full bg-white border border-cyan-400 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-200"
-                                rows={2}
-                                placeholder="Describe what data lives in this document to guide the AI..."
-                              />
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleSaveDescription(doc.id)}
-                                  className="bg-navy-800 text-white text-xs px-3 py-1.5 rounded-lg font-semibold hover:bg-navy-900 transition"
-                                >
-                                  Save Description
-                                </button>
-                                <button
-                                  onClick={() => setEditingDocId(null)}
-                                  className="text-xs text-slate-500 hover:text-slate-800 px-2 py-1 font-medium"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div 
-                              onClick={() => { setEditingDocId(doc.id); setEditDescription(doc.description); }}
-                              className="group flex items-start gap-1.5 text-xs text-slate-600 cursor-pointer pt-1"
-                              title="Click to edit semantic description"
-                            >
-                              <span className="font-semibold text-navy-800 shrink-0">Semantic Summary:</span>
-                              <p className="group-hover:text-cyan-700 transition leading-relaxed">
-                                {doc.description}
-                              </p>
-                              <Pencil size={12} className="text-slate-300 group-hover:text-cyan-600 shrink-0 mt-0.5 transition" />
-                            </div>
-                          )}
+                        </div>
+
+                        {/* Enable/Disable Toggle & Actions */}
+                        <div className="flex items-center gap-3 shrink-0">
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              checked={doc.isEnabled}
+                              onChange={() => handleToggleDoc(doc.id)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                          </label>
+                          <button
+                            onClick={() => handleDeleteDoc(doc.id)}
+                            className="text-slate-400 hover:text-rose-600 transition p-2 rounded-lg hover:bg-slate-100"
+                            title="Remove document from KB"
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </div>
                       </div>
-
-                      {/* Enable/Disable Toggle & Actions */}
-                      <div className="flex items-center gap-3 shrink-0">
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input 
-                            type="checkbox" 
-                            checked={doc.isEnabled}
-                            onChange={() => handleToggleDoc(doc.id)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
-                        </label>
-                        <button
-                          onClick={() => handleDeleteDoc(doc.id)}
-                          className="text-slate-400 hover:text-rose-600 transition p-2 rounded-lg hover:bg-slate-100"
-                          title="Remove document from KB"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -778,54 +806,75 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-3.5">
-                {reminders.map((rem) => (
-                  <div key={rem.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-sm transition space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-sm text-navy-800">{rem.title}</h4>
-                          <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
-                            rem.autoActionPolicy === 'auto_submit'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
-                          }`}>
-                            Policy: {rem.autoActionPolicy.replace(/_/g, ' ')}
-                          </span>
-                        </div>
-                        <a 
-                          href={rem.websiteUrl} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          className="text-xs text-cyan-700 hover:text-cyan-900 font-medium hover:underline flex items-center gap-1"
-                        >
-                          {rem.websiteUrl} <ExternalLink size={11} />
-                        </a>
-                      </div>
-
-                      <div className="text-left sm:text-right">
-                        <span className="text-[11px] text-slate-500 block">Target Deadline</span>
-                        <strong suppressHydrationWarning className="text-xs text-navy-800 font-semibold">
-                          {isMounted 
-                            ? `${new Date(rem.deadlineTimestamp).toLocaleDateString()} at ${new Date(rem.deadlineTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                            : 'Scheduled Deadline'
-                          }
-                        </strong>
-                      </div>
+                {reminders.length === 0 ? (
+                  <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center space-y-4 shadow-2xs">
+                    <div className="w-14 h-14 rounded-2xl bg-cyan-50 text-cyan-600 border border-cyan-100 flex items-center justify-center mx-auto shadow-2xs">
+                      <Clock size={26} />
                     </div>
-
-                    <div className="pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500">
-                      <div className="flex items-center gap-3">
-                        <span>Min Confidence Required: <strong className="text-navy-800 font-semibold">{Math.round(rem.minConfidenceThreshold * 100)}%</strong></span>
-                        <span>•</span>
-                        <span>Tone: <strong className="capitalize text-navy-800 font-semibold">{rem.tone}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
-                        <span className="text-cyan-800 font-semibold text-xs">Autonomous Agent Active</span>
-                      </div>
+                    <div className="max-w-md mx-auto space-y-1">
+                      <h3 className="text-base font-bold text-navy-800">No active form reminders scheduled</h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Track upcoming application deadlines. If you haven&apos;t completed the form before the deadline, our background agent will auto-fill or auto-submit based on your policy.
+                      </p>
                     </div>
+                    <button
+                      onClick={() => setShowAddReminderModal(true)}
+                      className="btn-lightup inline-flex items-center gap-2 bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-xs transition"
+                    >
+                      <Plus size={15} className="text-cyan-400" />
+                      <span>Schedule Your First Reminder</span>
+                    </button>
                   </div>
-                ))}
+                ) : (
+                  reminders.map((rem) => (
+                    <div key={rem.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-sm transition space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-sm text-navy-800">{rem.title}</h4>
+                            <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full ${
+                              rem.autoActionPolicy === 'auto_submit'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-cyan-50 text-cyan-700 border border-cyan-200'
+                            }`}>
+                              Policy: {rem.autoActionPolicy.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                          <a 
+                            href={rem.websiteUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="text-xs text-cyan-700 hover:text-cyan-900 font-medium hover:underline flex items-center gap-1"
+                          >
+                            {rem.websiteUrl} <ExternalLink size={11} />
+                          </a>
+                        </div>
+
+                        <div className="text-left sm:text-right">
+                          <span className="text-[11px] text-slate-500 block">Target Deadline</span>
+                          <strong suppressHydrationWarning className="text-xs text-navy-800 font-semibold">
+                            {isMounted 
+                              ? `${new Date(rem.deadlineTimestamp).toLocaleDateString()} at ${new Date(rem.deadlineTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                              : 'Scheduled Deadline'
+                            }
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-500">
+                        <div className="flex items-center gap-3">
+                          <span>Min Confidence Required: <strong className="text-navy-800 font-semibold">{Math.round(rem.minConfidenceThreshold * 100)}%</strong></span>
+                          <span>•</span>
+                          <span>Tone: <strong className="capitalize text-navy-800 font-semibold">{rem.tone}</strong></span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
+                          <span className="text-cyan-800 font-semibold text-xs">Autonomous Agent Active</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -894,43 +943,57 @@ export default function DashboardPage() {
               {/* Active / Past Bulk Batches */}
               <div className="space-y-3.5">
                 <h3 className="text-xs font-bold text-navy-800 uppercase tracking-wider">Recent Batch Runs</h3>
-                {bulkJobs.map((job) => (
-                  <div key={job.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-navy-50 text-navy-800">
-                          <Layers size={18} />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-sm text-navy-800">{job.name}</h4>
-                          <span className="text-xs text-slate-500">{job.urls.length} sites in execution queue</span>
-                        </div>
-                      </div>
-
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold capitalize">
-                        {job.status}
-                      </span>
+                {bulkJobs.length === 0 ? (
+                  <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-10 text-center space-y-3 shadow-2xs">
+                    <div className="w-12 h-12 rounded-2xl bg-cyan-50 text-cyan-600 border border-cyan-100 flex items-center justify-center mx-auto shadow-2xs">
+                      <Layers size={22} />
                     </div>
-
-                    {/* Progress Items */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {job.urls.map((item) => (
-                        <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-navy-800 truncate max-w-[150px]">{item.domain}</span>
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                              {item.status}
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-slate-500 flex items-center justify-between">
-                            <span>Filled: {item.filledFieldsCount}/{item.totalFieldsCount}</span>
-                            <span>Conf: {Math.round((item.averageConfidence || 0.9) * 100)}%</span>
-                          </div>
-                        </div>
-                      ))}
+                    <div className="max-w-md mx-auto space-y-1">
+                      <h4 className="text-sm font-bold text-navy-800">No fleet batches dispatched yet</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Paste form links above and hit &quot;Launch Fleet Runner&quot; to execute multi-site background scans and parallel completions.
+                      </p>
                     </div>
                   </div>
-                ))}
+                ) : (
+                  bulkJobs.map((job) => (
+                    <div key={job.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-xl bg-navy-50 text-navy-800">
+                            <Layers size={18} />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm text-navy-800">{job.name}</h4>
+                            <span className="text-xs text-slate-500">{job.urls.length} sites in execution queue</span>
+                          </div>
+                        </div>
+
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold capitalize">
+                          {job.status}
+                        </span>
+                      </div>
+
+                      {/* Progress Items */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {job.urls.map((item) => (
+                          <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-navy-800 truncate max-w-[150px]">{item.domain}</span>
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                {item.status}
+                              </span>
+                            </div>
+                            <div className="text-[11px] text-slate-500 flex items-center justify-between">
+                              <span>Filled: {item.filledFieldsCount}/{item.totalFieldsCount}</span>
+                              <span>Conf: {Math.round((item.averageConfidence || 0.9) * 100)}%</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -946,44 +1009,58 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-4">
-                {historyStore.map((record) => (
-                  <div key={record.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-bold text-sm text-navy-800">{record.formTitle}</h4>
-                          <span className="text-xs text-slate-500">({record.domain})</span>
-                        </div>
-                        <p suppressHydrationWarning className="text-xs text-slate-500">
-                          Submitted on {isMounted ? new Date(record.submittedAt).toLocaleDateString() : 'Recently'} • Tone: <strong className="capitalize text-navy-800">{record.tone}</strong>
-                        </p>
-                      </div>
-
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200 font-bold">
-                        {record.filledFieldsCount} Fields Logged
-                      </span>
+                {historyStore.length === 0 ? (
+                  <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center space-y-4 shadow-2xs">
+                    <div className="w-14 h-14 rounded-2xl bg-cyan-50 text-cyan-600 border border-cyan-100 flex items-center justify-center mx-auto shadow-2xs">
+                      <History size={26} />
                     </div>
-
-                    <div className="space-y-2 pt-2 border-t border-slate-100">
-                      {record.fields.map((f, i) => (
-                        <div key={i} className="flex items-start justify-between gap-3 text-xs py-2 border-b border-slate-100 last:border-0">
-                          <div className="space-y-0.5 max-w-lg min-w-0 break-words">
-                            <span className="text-slate-500 block font-semibold">{f.question}</span>
-                            <span className="text-slate-800 block font-medium">{f.answer}</span>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                              ⚡ {Math.round(f.confidence * 100)}%
-                            </span>
-                            {f.wasEditedByUser && (
-                              <span className="block text-[10px] text-amber-700 font-semibold mt-0.5">User Edited</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                    <div className="max-w-md mx-auto space-y-1">
+                      <h3 className="text-base font-bold text-navy-800">No form submissions logged yet</h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Whenever FormPilot completes or audits a form on the web, questions, generated answers, citations, and confidence logs are securely recorded here.
+                      </p>
                     </div>
                   </div>
-                ))}
+                ) : (
+                  historyStore.map((record) => (
+                    <div key={record.id} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-sm text-navy-800">{record.formTitle}</h4>
+                            <span className="text-xs text-slate-500">({record.domain})</span>
+                          </div>
+                          <p suppressHydrationWarning className="text-xs text-slate-500">
+                            Submitted on {isMounted ? new Date(record.submittedAt).toLocaleDateString() : 'Recently'} • Tone: <strong className="capitalize text-navy-800">{record.tone}</strong>
+                          </p>
+                        </div>
+
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200 font-bold">
+                          {record.filledFieldsCount} Fields Logged
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 pt-2 border-t border-slate-100">
+                        {record.fields.map((f, i) => (
+                          <div key={i} className="flex items-start justify-between gap-3 text-xs py-2 border-b border-slate-100 last:border-0">
+                            <div className="space-y-0.5 max-w-lg min-w-0 break-words">
+                              <span className="text-slate-500 block font-semibold">{f.question}</span>
+                              <span className="text-slate-800 block font-medium">{f.answer}</span>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                                ⚡ {Math.round(f.confidence * 100)}%
+                              </span>
+                              {f.wasEditedByUser && (
+                                <span className="block text-[10px] text-amber-700 font-semibold mt-0.5">User Edited</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -1038,7 +1115,7 @@ export default function DashboardPage() {
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
                     rows={4}
-                    placeholder="E.g., 'Always format phone numbers with international code +91. Prioritize remote work preference. Emphasize full-stack React and autonomous AI experience.'"
+                    placeholder="E.g., 'Always format phone numbers in standard international format (+1 or E.164). Prioritize remote work preference. Emphasize full-stack React and autonomous AI experience.'"
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"
                   />
                   <p className="text-[11px] text-slate-500">
