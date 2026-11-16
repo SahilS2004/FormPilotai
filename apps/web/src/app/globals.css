@@ -7,12 +7,23 @@
   --background: #F8FAFC;
 }
 
+.dark {
+  --foreground: #F8FAFC;
+  --background: #080E21;
+}
+
 body {
   color: var(--foreground);
   background-color: var(--background);
   min-height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.dark body {
+  background-color: #080E21;
+  color: #F8FAFC;
 }
 
 /* Custom subtle scrollbar */
@@ -74,7 +85,7 @@ body {
 
 /* Fogged Glass Effect for Floating Surfaces */
 .glass-fogged {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
   border: 1px solid rgba(255, 255, 255, 0.85);
@@ -82,4 +93,15 @@ body {
     0 12px 32px -4px rgba(17, 38, 79, 0.08), 
     0 4px 12px -2px rgba(0, 186, 198, 0.03), 
     inset 0 1px 0 0 rgba(255, 255, 255, 0.95);
+}
+
+.dark .glass-fogged {
+  background: rgba(11, 28, 61, 0.8);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 12px 32px -4px rgba(0, 0, 0, 0.4), 
+    0 4px 12px -2px rgba(0, 186, 198, 0.08), 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
 }

@@ -25,12 +25,21 @@ import {
   X,
   FileCheck2,
   ChevronRight,
+  ChevronDown,
   CheckSquare,
   Compass,
   RotateCcw,
-  Menu
+  Menu,
+  User,
+  Settings,
+  Sun,
+  Moon,
+  LogOut,
+  Download
 } from 'lucide-react';
 import OnboardingTour from '@/components/OnboardingTour';
+import InitialInfoModal, { UserInitialProfile } from '@/components/InitialInfoModal';
+import SettingsProfileModal, { UserSession } from '@/components/SettingsProfileModal';
 
 const DEMO_MILESTONES = [
   { id: 'kb', label: '1. Explore KB Scopes', sub: 'Enable docs & descriptions', tab: 'kb' as const },
@@ -60,6 +69,14 @@ export default function DashboardPage() {
   const [isMounted, setIsMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'kb' | 'reminders' | 'bulk' | 'history' | 'settings'>('kb');
   
+  // User Session & Profile Questionnaire State
+  const [user, setUser] = useState<UserSession | null>(null);
+  const [userProfile, setUserProfile] = useState<UserInitialProfile | null>(null);
+  const [isInitialInfoOpen, setIsInitialInfoOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isChecklistCollapsed, setIsChecklistCollapsed] = useState(false);
+
   // Onboarding & Demo Checklist State
   const [completedMilestones, setCompletedMilestones] = useState<string[]>(['kb']);
   const [isTourOpen, setIsTourOpen] = useState(false);
@@ -68,17 +85,96 @@ export default function DashboardPage() {
   useEffect(() => {
     setIsMounted(true);
     try {
+      // 1. Load authenticated user
+      const storedUser = localStorage.getItem('formpilot_user');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      } else {
+        const defaultUser: UserSession = {
+          id: 'usr_demo_1',
+          name: 'Demo Pilot',
+          email: 'demo@formpilot.ai',
+          role: 'user'
+        };
+        setUser(defaultUser);
+        localStorage.setItem('formpilot_user', JSON.stringify(defaultUser));
+      }
+
+      // 2. Load theme preference
+      const savedTheme = localStorage.getItem('formpilot_theme');
+      if (savedTheme === 'dark') {
+        setIsDarkMode(true);
+        document.documentElement.classList.add('dark');
+      } else {
+        setIsDarkMode(false);
+        document.documentElement.classList.remove('dark');
+      }
+
+      // 3. Load user questionnaire profile
+      const savedProfile = localStorage.getItem('formpilot_user_profile');
+      if (savedProfile) {
+        const parsed = JSON.parse(savedProfile);
+        setUserProfile(parsed);
+        if (parsed.tone) {
+          setTone(parsed.tone);
+        }
+      }
+
+      const needsInfo = localStorage.getItem('formpilot_show_initial_info');
+      const alreadySaved = localStorage.getItem('formpilot_initial_info_saved');
+      if (needsInfo === 'true' || (!savedProfile && !alreadySaved)) {
+        setIsInitialInfoOpen(true);
+      }
+
+      // 4. Checklist & Tour
       const savedMilestones = localStorage.getItem('formpilot_milestones');
       if (savedMilestones) {
         setCompletedMilestones(JSON.parse(savedMilestones));
       }
       const hasCompletedTour = localStorage.getItem('formpilot_tour_completed');
-      if (!hasCompletedTour) {
+      if (!hasCompletedTour && needsInfo !== 'true') {
         const timer = setTimeout(() => setIsTourOpen(true), 900);
         return () => clearTimeout(timer);
       }
     } catch {}
   }, []);
+
+  const handleToggleTheme = (specificVal?: boolean | React.MouseEvent) => {
+    const nextDark = typeof specificVal === 'boolean' ? specificVal : !isDarkMode;
+    setIsDarkMode(nextDark);
+    if (nextDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('formpilot_theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('formpilot_theme', 'light');
+    }
+  };
+
+  const handleSignOut = () => {
+    try {
+      localStorage.removeItem('formpilot_user');
+      localStorage.removeItem('formpilot_token');
+      document.cookie = 'formpilot_token=; path=/; max-age=0';
+    } catch {}
+    window.location.href = '/login';
+  };
+
+  const handleSaveInitialProfile = (profile: UserInitialProfile) => {
+    setUserProfile(profile);
+    setTone(profile.tone);
+    try {
+      localStorage.setItem('formpilot_user_profile', JSON.stringify(profile));
+      localStorage.setItem('formpilot_initial_info_saved', 'true');
+      localStorage.removeItem('formpilot_show_initial_info');
+      fetch('/api/persona', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tone: profile.tone })
+      }).catch(() => {});
+    } catch {}
+    setIsInitialInfoOpen(false);
+  };
 
   const handleMilestoneClick = (tab: 'kb' | 'reminders' | 'bulk' | 'history' | 'settings', id: string) => {
     setActiveTab(tab);
@@ -413,122 +509,163 @@ export default function DashboardPage() {
           </nav>
 
           {/* Initial Demo Checklist Widget for First-Time Users */}
-          <div className="pt-4 border-t border-slate-100 space-y-2.5">
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <CheckSquare size={14} className="text-cyan-600" />
-                <span className="text-xs font-extrabold text-navy-800 tracking-tight">Demo Checklist</span>
+                <span className="text-xs font-extrabold text-navy-800 dark:text-white tracking-tight">Demo Checklist</span>
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200">
-                {completedMilestones.length}/5 Done
-              </span>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-cyan-500 to-cyan-400 h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.round((completedMilestones.length / 5) * 100)}%` }}
-              />
-            </div>
-
-            {/* Checklist Items */}
-            <div className="space-y-1">
-              {DEMO_MILESTONES.map((item) => {
-                const isDone = completedMilestones.includes(item.id);
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => handleMilestoneClick(item.tab, item.id)}
-                    className={`w-full flex items-start gap-2.5 p-2 rounded-xl text-left transition group ${
-                      activeTab === item.tab 
-                        ? 'bg-slate-100/90 shadow-2xs' 
-                        : 'hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="mt-0.5 shrink-0">
-                      {isDone ? (
-                        <CheckCircle2 size={13} className="text-cyan-600 fill-cyan-50" />
-                      ) : (
-                        <div className="w-3 h-3 rounded-full border border-slate-300 group-hover:border-cyan-400 transition" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-[11px] font-bold leading-tight ${
-                        isDone ? 'line-through text-slate-400' : 'text-navy-800'
-                      }`}>
-                        {item.label}
-                      </p>
-                      <span className="text-[9.5px] text-slate-500 block truncate">
-                        {item.sub}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Quick Tour Launcher & Reset */}
-            <div className="pt-2 flex items-center justify-between text-[11px] border-t border-slate-100">
-              <button
-                onClick={() => setIsTourOpen(true)}
-                className="text-cyan-700 hover:text-cyan-800 font-bold flex items-center gap-1 transition"
-              >
-                <Compass size={12} className="animate-spin-slow" />
-                <span>Guided Tour</span>
-              </button>
-              {completedMilestones.length === 5 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
+                  {completedMilestones.length}/5 Done
+                </span>
                 <button
-                  onClick={handleResetChecklist}
-                  className="text-slate-400 hover:text-slate-600 flex items-center gap-1 transition text-[10px]"
-                  title="Reset Demo Checklist"
+                  onClick={() => setIsChecklistCollapsed(!isChecklistCollapsed)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                  title={isChecklistCollapsed ? 'Expand checklist' : 'Collapse checklist'}
                 >
-                  <RotateCcw size={10} />
-                  <span>Reset</span>
+                  <ChevronDown size={14} className={`transform transition-transform duration-200 ${isChecklistCollapsed ? '-rotate-90' : 'rotate-0'}`} />
                 </button>
-              )}
+              </div>
             </div>
+
+            {!isChecklistCollapsed && (
+              <>
+                {/* Progress Bar */}
+                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                  <div 
+                    className="bg-gradient-to-r from-cyan-500 to-cyan-400 h-full rounded-full transition-all duration-500"
+                    style={{ width: `${Math.round((completedMilestones.length / 5) * 100)}%` }}
+                  />
+                </div>
+
+                {/* Checklist Items */}
+                <div className="space-y-1">
+                  {DEMO_MILESTONES.map((item) => {
+                    const isDone = completedMilestones.includes(item.id);
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleMilestoneClick(item.tab, item.id)}
+                        className={`w-full flex items-start gap-2.5 p-2 rounded-xl text-left transition group ${
+                          activeTab === item.tab 
+                            ? 'bg-slate-100/90 dark:bg-slate-800 shadow-2xs' 
+                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <div className="mt-0.5 shrink-0">
+                          {isDone ? (
+                            <CheckCircle2 size={13} className="text-cyan-600 fill-cyan-50 dark:fill-cyan-950" />
+                          ) : (
+                            <div className="w-3 h-3 rounded-full border border-slate-300 dark:border-slate-600 group-hover:border-cyan-400 transition" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-[11px] font-bold leading-tight ${
+                            isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-navy-800 dark:text-white'
+                          }`}>
+                            {item.label}
+                          </p>
+                          <span className="text-[9.5px] text-slate-500 dark:text-slate-400 block truncate">
+                            {item.sub}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Quick Tour Launcher & Reset */}
+                <div className="pt-2 flex items-center justify-between text-[11px] border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    onClick={() => setIsTourOpen(true)}
+                    className="text-cyan-700 hover:text-cyan-800 dark:text-cyan-400 dark:hover:text-cyan-300 font-bold flex items-center gap-1 transition"
+                  >
+                    <Compass size={12} className="animate-spin-slow" />
+                    <span>Guided Tour</span>
+                  </button>
+                  {completedMilestones.length === 5 && (
+                    <button
+                      onClick={handleResetChecklist}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-1 transition text-[10px]"
+                      title="Reset Demo Checklist"
+                    >
+                      <RotateCcw size={10} />
+                      <span>Reset</span>
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Bottom of Sidebar */}
-        <div className="p-5 border-t border-slate-100 space-y-3 bg-slate-50/50">
-          <div className="flex items-center justify-between text-xs text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-            <span className="font-medium">Active KB Scope</span>
-            <span className="font-bold text-navy-800 bg-cyan-50 text-cyan-800 px-2 py-0.5 rounded-full border border-cyan-200 text-[10px]">
-              {activeDocsCount} of {docs.length} Docs
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium px-1">
-            <ShieldCheck size={14} className="text-cyan-600" />
-            <span>Extension Ready</span>
-          </div>
-
-          <Link
-            href="/"
-            className="btn-lightup-subtle w-full flex items-center justify-center gap-1.5 text-xs text-slate-600 hover:text-navy-800 font-semibold p-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 transition shadow-2xs"
+        {/* Bottom of Sidebar: Profile, Settings, Theme, and Sign Out Controls */}
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3 bg-slate-50/60 dark:bg-slate-850">
+          <div 
+            onClick={() => setIsSettingsModalOpen(true)}
+            className="flex items-center gap-3 p-2.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-2xs hover:shadow-xs hover:border-cyan-300 dark:hover:border-cyan-600 transition cursor-pointer group"
+            title="Open Profile & Settings"
           >
-            ← Back to Home
-          </Link>
+            <div className="w-9 h-9 rounded-xl bg-navy-800 text-cyan-300 font-extrabold text-xs flex items-center justify-center border border-navy-700 shrink-0">
+              {user?.name ? user.name.slice(0, 2).toUpperCase() : 'FP'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-xs font-bold text-navy-800 dark:text-white truncate block group-hover:text-cyan-600 transition">
+                {user?.name || 'Demo Pilot'}
+              </span>
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate block">
+                {user?.email || 'demo@formpilot.ai'}
+              </span>
+            </div>
+            <Settings size={14} className="text-slate-400 group-hover:text-cyan-600 transition shrink-0" />
+          </div>
+
+          {/* Quick Action Buttons: Profile, Settings, Theme, Sign Out */}
+          <div className="grid grid-cols-4 gap-1.5">
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-navy-800 dark:hover:text-white hover:border-cyan-400 transition flex items-center justify-center shadow-2xs"
+              title="Profile details"
+            >
+              <User size={14} />
+            </button>
+
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-navy-800 dark:hover:text-white hover:border-cyan-400 transition flex items-center justify-center shadow-2xs"
+              title="Agent settings & API key"
+            >
+              <Settings size={14} />
+            </button>
+
+            <button
+              onClick={handleToggleTheme}
+              className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-navy-800 dark:hover:text-white hover:border-cyan-400 transition flex items-center justify-center shadow-2xs"
+              title={isDarkMode ? "Switch to Light mode" : "Switch to Dark mode"}
+            >
+              {isDarkMode ? <Sun size={14} className="text-amber-400" /> : <Moon size={14} className="text-navy-700" />}
+            </button>
+
+            <button
+              onClick={handleSignOut}
+              className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:border-rose-200 transition flex items-center justify-center shadow-2xs"
+              title="Sign Out"
+            >
+              <LogOut size={14} />
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* 2. Main Workspace Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Floating Thick Fogged-Glass Navbar Header - Responsive */}
-        <header className="sticky top-3 sm:top-4 lg:top-5 z-20 mx-3 sm:mx-6 lg:mx-8 mt-3 sm:mt-5 mb-2 px-4 sm:px-6 lg:px-8 py-3.5 sm:py-5 min-h-[72px] sm:min-h-[86px] glass-fogged rounded-2xl sm:rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 transition-all">
-          <div className="flex items-center gap-3 sm:gap-4">
-            {/* Mobile Sidebar Hamburger Toggle */}
-            <button
-              onClick={() => setIsMobileNavOpen(true)}
-              className="lg:hidden p-2 rounded-xl bg-white border border-slate-200 text-navy-800 shadow-2xs hover:bg-slate-50 transition shrink-0"
-              aria-label="Open sidebar menu"
-            >
-              <Menu size={18} />
-            </button>
-
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-cyan-50 to-navy-50 border border-cyan-200/80 flex items-center justify-center text-cyan-600 shadow-xs shrink-0">
+        {/* Floating Thick Fogged-Glass Navbar Header - Responsive & Cleaned */}
+        <header className="sticky top-3 sm:top-4 lg:top-5 z-20 mx-3 sm:mx-6 lg:mx-8 mt-3 sm:mt-5 mb-2 px-4 sm:px-6 lg:px-8 py-3 sm:py-4 min-h-[68px] sm:min-h-[76px] glass-fogged rounded-2xl sm:rounded-3xl flex items-center justify-between gap-3 sm:gap-4 transition-all">
+          
+          {/* Left: Section Icon & Title */}
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-gradient-to-tr from-cyan-50 to-navy-50 dark:from-slate-800 dark:to-slate-800 border border-cyan-200/80 dark:border-slate-700 flex items-center justify-center text-cyan-600 shadow-xs shrink-0">
               {activeTab === 'kb' && <FileStack size={20} className="text-cyan-600" />}
               {activeTab === 'reminders' && <CalendarClock size={20} className="text-cyan-600" />}
               {activeTab === 'bulk' && <Bot size={20} className="text-cyan-600" />}
@@ -537,59 +674,73 @@ export default function DashboardPage() {
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-sm sm:text-base lg:text-lg font-extrabold text-navy-800 tracking-tight truncate">
+                <h1 className="text-sm sm:text-base lg:text-lg font-extrabold text-navy-800 dark:text-white tracking-tight truncate">
                   {activeTab === 'kb' && 'Document Knowledge Base'}
                   {activeTab === 'reminders' && 'Form Reminders & Auto-Action'}
                   {activeTab === 'bulk' && 'Bulk Multi-Site Runner'}
                   {activeTab === 'history' && 'Form Fill History & Audit'}
                   {activeTab === 'settings' && 'Persona & System Directives'}
                 </h1>
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-navy-50 text-navy-700 border border-navy-100">
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-navy-50 dark:bg-slate-800 text-navy-700 dark:text-slate-300 border border-navy-100 dark:border-slate-700">
                   Live
                 </span>
               </div>
-              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 truncate max-w-[200px] sm:max-w-none">
+              <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate max-w-[200px] sm:max-w-none">
                 Autonomous Form Completion & Grounded Context Engine
               </p>
             </div>
           </div>
 
-          <div className="flex items-center flex-wrap gap-3 self-end sm:self-auto">
+          {/* Right: Clean Action Controls (Guided Tour, Theme, Settings, Profile, and Mobile Hamburger) */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {/* Guided Tour Trigger Button */}
             <button
               onClick={() => setIsTourOpen(true)}
-              className="btn-lightup-subtle flex items-center gap-1.5 text-xs bg-white/80 hover:bg-white text-navy-800 font-bold px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border border-cyan-200/90 shadow-2xs transition"
+              className="btn-lightup-subtle flex items-center gap-1.5 text-xs bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 text-navy-800 dark:text-white font-bold px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border border-cyan-200/90 dark:border-slate-700 shadow-2xs transition"
+              title="Launch interactive tour"
             >
               <Compass size={13} className="text-cyan-600 animate-spin-slow" />
               <span className="hidden sm:inline">Guided Tour</span>
               <span className="sm:hidden text-[11px]">Tour</span>
             </button>
 
-            {/* Active KB Scope Chip */}
-            <div className="hidden md:flex items-center gap-2 text-xs bg-white/70 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-slate-200/80 text-slate-700 font-semibold shadow-2xs">
-              <span className="text-slate-400 font-normal">Active Scope:</span>
-              <span className="text-cyan-700 font-bold">{activeDocsCount}/{docs.length} Docs</span>
-            </div>
+            {/* Quick Theme Toggle Button */}
+            <button
+              onClick={handleToggleTheme}
+              className="p-2 sm:p-2.5 rounded-xl bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition shadow-2xs"
+              title={isDarkMode ? "Switch to Light mode" : "Switch to Dark mode"}
+              aria-label="Toggle theme"
+            >
+              {isDarkMode ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-navy-700" />}
+            </button>
 
-            {/* Persona Tone Chip */}
-            <div className="hidden xl:flex items-center gap-1.5 text-xs bg-slate-100/90 backdrop-blur-sm px-3.5 py-2 rounded-xl border border-slate-200/80 text-slate-700 font-semibold">
-              <span className="text-slate-400 font-normal">Tone:</span>
-              <span className="capitalize text-navy-800 font-bold">{tone}</span>
-            </div>
+            {/* Settings Button */}
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="p-2 sm:p-2.5 rounded-xl bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-200 transition shadow-2xs"
+              title="Open Settings & Model Config"
+              aria-label="Settings"
+            >
+              <Settings size={15} className="text-slate-600 dark:text-slate-300" />
+            </button>
 
-            {/* Retrieval Engine Status Indicator */}
-            <div className="flex items-center gap-2.5 text-xs bg-cyan-50/90 backdrop-blur-sm px-4 py-2 rounded-xl border border-cyan-200/90 text-cyan-900 font-semibold shadow-2xs">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-cyan-500"></span>
-              </span>
-              <span>Grounded Engine Ready</span>
-            </div>
+            {/* User Profile Button */}
+            <button
+              onClick={() => setIsSettingsModalOpen(true)}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-navy-800 dark:bg-cyan-600 text-cyan-300 dark:text-white font-extrabold text-xs flex items-center justify-center border border-navy-700 dark:border-cyan-500 shadow-xs tracking-wider shrink-0 select-none hover:ring-2 hover:ring-cyan-400 transition"
+              title="Profile & Settings"
+            >
+              {user?.name ? user.name.slice(0, 2).toUpperCase() : 'FP'}
+            </button>
 
-            {/* User Profile / Status Badge */}
-            <div className="w-10 h-10 rounded-xl bg-navy-800 text-cyan-300 font-extrabold text-xs flex items-center justify-center border border-navy-700 shadow-xs tracking-wider shrink-0 select-none">
-              FP
-            </div>
+            {/* Mobile Sidebar Hamburger Toggle - Moved to Right of Navbar */}
+            <button
+              onClick={() => setIsMobileNavOpen(true)}
+              className="lg:hidden p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-navy-800 dark:text-white shadow-2xs hover:bg-slate-50 dark:hover:bg-slate-700 transition shrink-0"
+              aria-label="Open sidebar menu"
+            >
+              <Menu size={18} />
+            </button>
           </div>
         </header>
 
@@ -1298,6 +1449,45 @@ export default function DashboardPage() {
             }).catch(() => {});
           } catch {}
         }}
+      />
+
+      {/* Initial Signup Info Questionnaire Modal */}
+      <InitialInfoModal
+        isOpen={isInitialInfoOpen}
+        userName={user?.name || 'Pilot'}
+        onSave={handleSaveInitialProfile}
+        onSkip={() => {
+          setIsInitialInfoOpen(false);
+          try {
+            localStorage.setItem('formpilot_initial_info_saved', 'true');
+            localStorage.removeItem('formpilot_show_initial_info');
+          } catch {}
+        }}
+      />
+
+      {/* Settings, Profile, Model & Extension Modal */}
+      <SettingsProfileModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        user={user}
+        currentTone={tone}
+        onToneChange={(newTone) => {
+          setTone(newTone);
+          fetch('/api/persona', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tone: newTone })
+          }).catch(() => {});
+        }}
+        userProfile={userProfile}
+        onProfileUpdate={(updatedProfile) => {
+          setUserProfile(updatedProfile);
+          try {
+            localStorage.setItem('formpilot_user_profile', JSON.stringify(updatedProfile));
+          } catch {}
+        }}
+        isDarkMode={isDarkMode}
+        onToggleTheme={handleToggleTheme}
       />
     </div>
   );

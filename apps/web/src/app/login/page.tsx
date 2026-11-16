@@ -82,21 +82,22 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      const cleanEmail = email.trim().toLowerCase();
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: mode,
-          email,
+          email: cleanEmail,
           password,
-          name: mode === 'signup' ? name : undefined
+          name: mode === 'signup' ? name.trim() : undefined
         })
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setServerError(data.error || 'Authentication failed');
+        setServerError(data.error || 'Authentication failed. Please check your credentials.');
         setIsLoading(false);
         return;
       }
@@ -105,11 +106,16 @@ export default function LoginPage() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('formpilot_user', JSON.stringify(data.user));
         localStorage.setItem('formpilot_token', data.token);
-      }
+        document.cookie = `formpilot_token=${data.token}; path=/; max-age=2592000; SameSite=Lax`;
+        
+        if (mode === 'signup' || data.isNewUser) {
+          localStorage.setItem('formpilot_show_initial_info', 'true');
+        }
 
-      router.push('/dashboard');
+        window.location.href = '/dashboard';
+      }
     } catch (err: any) {
-      setServerError(err.message || 'Network error occurred');
+      setServerError(err.message || 'Network error occurred. Please try again.');
       setIsLoading(false);
     }
   };
@@ -120,6 +126,7 @@ export default function LoginPage() {
     setEmailError(null);
     setPasswordError(null);
     setServerError(null);
+    setIsLoading(true);
 
     // Auto submit demo
     setTimeout(() => {
@@ -131,9 +138,10 @@ export default function LoginPage() {
           role: 'user'
         }));
         localStorage.setItem('formpilot_token', 'fpt_demo_session_active');
+        document.cookie = 'formpilot_token=fpt_demo_session_active; path=/; max-age=2592000; SameSite=Lax';
+        window.location.href = '/dashboard';
       }
-      router.push('/dashboard');
-    }, 400);
+    }, 300);
   };
 
   return (

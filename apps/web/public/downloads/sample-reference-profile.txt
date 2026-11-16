@@ -1,0 +1,53 @@
+================================================================================
+FORMPILOT AI - SAMPLE APPLICANT PROFILE & REFERENCE DOCUMENT
+================================================================================
+
+[PERSONAL & CONTACT INFORMATION]
+Full Legal Name: Alex Morgan
+Preferred Name: Alex
+Primary Email: alex.morgan@example.com
+Phone Number: +1 (555) 019-2834
+Address: 742 Evergreen Terrace, Suite 400
+City: Seattle
+State / Province: WA
+Postal / Zip Code: 98101
+Country: United States of America
+LinkedIn: https://linkedin.com/in/alex-morgan-sample
+GitHub / Portfolio: https://github.com/alex-morgan-sample
+
+[PROFESSIONAL SUMMARY]
+Senior Full-Stack & AI Systems Engineer with over 5 years of experience architecting distributed TypeScript, Next.js, and multi-agent workflow systems. Proven track record in autonomous browser automation, state synchronization, and building production-grade enterprise interfaces.
+
+[WORK EXPERIENCE]
+Company: Apex Cloud Technologies
+Title: Lead Systems Engineer
+Duration: January 2023 - Present (Full-Time)
+Responsibilities & Achievements:
+- Designed and maintained scalable Next.js and Node.js microservices handling 2M+ monthly active requests.
+- Built low-latency LLM context-reasoning pipelines with PostgreSQL and vector embeddings.
+- Mentored a cross-functional squad of 8 engineers and improved test coverage from 64% to 92%.
+
+Company: Stellar Data Labs
+Title: Senior Software Engineer
+Duration: June 2020 - December 2022
+Responsibilities & Achievements:
+- Engineered browser extensions with Manifest V3 and background service workers for enterprise data extraction.
+- Reduced DOM parsing latency by 45% using efficient AST heuristics and TreeWalker traversals.
+
+[EDUCATION]
+Institution: University of Washington
+Degree: Bachelor of Science in Computer Science
+Graduation Year: 2020
+Honors: Magna Cum Laude, GPA: 3.88 / 4.00
+
+[SKILLS & CERTIFICATIONS]
+Programming Languages: TypeScript, JavaScript, Python, SQL, HTML5, CSS3
+Frameworks & Libraries: React, Next.js, Tailwind CSS, Node.js, Express, Vite
+Databases & Tools: PostgreSQL, Redis, Docker, Git, Linux, Chrome Extensions API
+Certifications: AWS Certified Solutions Architect (Associate), Certified Kubernetes Administrator (CKA)
+
+[AUTHORIZATION & WORK ELIGIBILITY]
+Work Authorization: Authorized to work in the United States without sponsorship.
+Notice Period: 2 Weeks
+Expected Compensation: Market rate / Competitive base with equity options.
+Preferred Work Arrangement: Remote / Hybrid
