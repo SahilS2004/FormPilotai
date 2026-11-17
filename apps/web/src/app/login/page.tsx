@@ -8,13 +8,10 @@ import {
   Mail, 
   Lock, 
   User, 
-  ShieldCheck, 
-  AlertCircle, 
-  Eye, 
-  EyeOff, 
-  Sparkles,
-  Sun,
-  Moon
+  ShieldCheck,
+  AlertCircle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { validateEmail, validatePassword } from '@/lib/auth';
 
@@ -25,7 +22,6 @@ export default function LoginPage() {
   const [name, setName] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Validation & Error States
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -34,29 +30,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    try {
-      const savedTheme = localStorage.getItem('formpilot_theme');
-      if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        setIsDarkMode(true);
-        document.documentElement.classList.add('dark');
-      } else {
-        setIsDarkMode(false);
-        document.documentElement.classList.remove('dark');
-      }
-    } catch {}
+    document.documentElement.classList.remove('dark');
   }, []);
-
-  const handleToggleTheme = () => {
-    const nextDark = !isDarkMode;
-    setIsDarkMode(nextDark);
-    if (nextDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('formpilot_theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('formpilot_theme', 'light');
-    }
-  };
 
   const handleEmailChange = (val: string) => {
     setEmail(val);
@@ -148,54 +123,18 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoSignIn = () => {
-    setEmail('demo@formpilot.ai');
-    setPassword('DemoPassword123!');
-    setEmailError(null);
-    setPasswordError(null);
-    setServerError(null);
-    setIsLoading(true);
-
-    // Auto submit demo
-    setTimeout(() => {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('formpilot_user', JSON.stringify({
-          id: 'usr_demo_1',
-          name: 'Demo Pilot',
-          email: 'demo@formpilot.ai',
-          role: 'user'
-        }));
-        localStorage.setItem('formpilot_token', 'fpt_demo_session_active');
-        document.cookie = 'formpilot_token=fpt_demo_session_active; path=/; max-age=2592000; SameSite=Lax';
-        window.location.href = '/dashboard';
-      }
-    }, 300);
-  };
-
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#080E21] text-slate-900 dark:text-slate-100 flex flex-col justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 relative transition-colors duration-200">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 relative transition-colors duration-200">
       
       {/* Top Left Back Button */}
       <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-10">
         <Link 
           href="/" 
-          className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-navy-800 dark:hover:text-white bg-white dark:bg-slate-800 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs hover:shadow-xs transition"
+          className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-navy-800 bg-white px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-slate-200 shadow-2xs hover:shadow-xs transition"
         >
-          <ArrowLeft size={14} className="text-cyan-600 dark:text-cyan-400" />
+          <ArrowLeft size={14} className="text-cyan-600" />
           <span>Back to Home</span>
         </Link>
-      </div>
-
-      {/* Top Right Theme Toggle */}
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-10">
-        <button
-          onClick={handleToggleTheme}
-          className="p-2 sm:p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-navy-800 dark:hover:text-white shadow-2xs transition"
-          title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          aria-label="Toggle Theme"
-        >
-          {isDarkMode ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-navy-700" />}
-        </button>
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -210,26 +149,26 @@ export default function LoginPage() {
           </Link>
         </div>
 
-        <h2 className="mt-5 text-center text-xl font-extrabold text-navy-800 dark:text-white tracking-tight">
+        <h2 className="mt-5 text-center text-xl font-extrabold text-navy-800 tracking-tight">
           {mode === 'signin' ? 'Sign in to your FormPilot workspace' : 'Create your FormPilot account'}
         </h2>
-        <p className="mt-1 text-center text-xs text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-center text-xs text-slate-500">
           Context-grounded autofill powered by your verified documents
         </p>
       </div>
 
       <div className="mt-7 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white dark:bg-slate-900 py-8 px-6 shadow-sm border border-slate-200 dark:border-slate-800 rounded-3xl sm:px-10 space-y-6">
+        <div className="bg-white py-8 px-6 shadow-sm border border-slate-200 rounded-3xl sm:px-10 space-y-6">
           
           {/* Mode Switcher Tabs */}
-          <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 border border-slate-200/80 dark:border-slate-700">
+          <div className="flex rounded-xl bg-slate-100 p-1 border border-slate-200/80">
             <button
               type="button"
               onClick={() => { setMode('signin'); setServerError(null); }}
               className={`w-1/2 py-2 text-xs font-bold rounded-lg transition-all ${
                 mode === 'signin' 
-                  ? 'bg-white dark:bg-slate-700 text-navy-800 dark:text-white shadow-xs' 
-                  : 'text-slate-600 dark:text-slate-400 hover:text-navy-800 dark:hover:text-white'
+                  ? 'bg-white text-navy-800 shadow-xs' 
+                  : 'text-slate-600 hover:text-navy-800'
               }`}
             >
               Sign In
@@ -239,8 +178,8 @@ export default function LoginPage() {
               onClick={() => { setMode('signup'); setServerError(null); }}
               className={`w-1/2 py-2 text-xs font-bold rounded-lg transition-all ${
                 mode === 'signup' 
-                  ? 'bg-white dark:bg-slate-700 text-navy-800 dark:text-white shadow-xs' 
-                  : 'text-slate-600 dark:text-slate-400 hover:text-navy-800 dark:hover:text-white'
+                  ? 'bg-white text-navy-800 shadow-xs' 
+                  : 'text-slate-600 hover:text-navy-800'
               }`}
             >
               Create Account
@@ -249,8 +188,8 @@ export default function LoginPage() {
 
           {/* Server Error Alert */}
           {serverError && (
-            <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-xs text-rose-800 dark:text-rose-300 flex items-start gap-2.5">
-              <AlertCircle size={16} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-start gap-2.5">
+              <AlertCircle size={16} className="text-rose-600 shrink-0 mt-0.5" />
               <span>{serverError}</span>
             </div>
           )}
@@ -259,7 +198,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
               <div className="space-y-1">
-                <label className="text-xs font-bold text-navy-800 dark:text-white uppercase tracking-wider block">
+                <label className="text-xs font-bold text-navy-800 uppercase tracking-wider block">
                   Full Name
                 </label>
                 <div className="relative">
@@ -272,7 +211,7 @@ export default function LoginPage() {
                     placeholder="e.g. Alex Morgan"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl py-2.5 pl-10 pr-3 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-200 dark:focus:ring-cyan-800 focus:border-cyan-500"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl py-2.5 pl-10 pr-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"
                   />
                 </div>
               </div>
@@ -281,10 +220,10 @@ export default function LoginPage() {
             {/* Email Field with Strict No-Plus Validation */}
             <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-navy-800 dark:text-white uppercase tracking-wider block">
+                <label className="text-xs font-bold text-navy-800 uppercase tracking-wider block">
                   Email Address
                 </label>
-                <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">Standard email only (no &apos;+&apos; aliases)</span>
+                <span className="text-[10px] text-slate-400 font-medium">Standard email only (no &apos;+&apos; aliases)</span>
               </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -296,17 +235,17 @@ export default function LoginPage() {
                   placeholder="name@company.com"
                   value={email}
                   onChange={(e) => handleEmailChange(e.target.value)}
-                  className={`w-full bg-slate-50 dark:bg-slate-800 border rounded-xl py-2.5 pl-10 pr-3 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 transition ${
+                  className={`w-full bg-slate-50 border rounded-xl py-2.5 pl-10 pr-3 text-xs text-slate-900 focus:outline-none focus:ring-2 transition ${
                     emailError 
                       ? 'border-rose-400 focus:ring-rose-100 focus:border-rose-500 bg-rose-50/20' 
-                      : 'border-slate-300 dark:border-slate-700 focus:ring-cyan-200 dark:focus:ring-cyan-800 focus:border-cyan-500'
+                      : 'border-slate-300 focus:ring-cyan-200 focus:border-cyan-500'
                   }`}
                 />
               </div>
 
               {/* Inline Strict Email Warning */}
               {emailError && (
-                <div className="flex items-center gap-1.5 text-[11px] text-rose-600 dark:text-rose-400 font-medium pt-1">
+                <div className="flex items-center gap-1.5 text-[11px] text-rose-600 font-medium pt-1">
                   <AlertCircle size={13} className="shrink-0" />
                   <span>{emailError}</span>
                 </div>
@@ -315,7 +254,7 @@ export default function LoginPage() {
 
             {/* Password Field */}
             <div className="space-y-1">
-              <label className="text-xs font-bold text-navy-800 dark:text-white uppercase tracking-wider block">
+              <label className="text-xs font-bold text-navy-800 uppercase tracking-wider block">
                 Password
               </label>
               <div className="relative">
@@ -328,23 +267,23 @@ export default function LoginPage() {
                   placeholder="••••••••••••"
                   value={password}
                   onChange={(e) => handlePasswordChange(e.target.value)}
-                  className={`w-full bg-slate-50 dark:bg-slate-800 border rounded-xl py-2.5 pl-10 pr-10 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 transition ${
+                  className={`w-full bg-slate-50 border rounded-xl py-2.5 pl-10 pr-10 text-xs text-slate-900 focus:outline-none focus:ring-2 transition ${
                     passwordError 
                       ? 'border-rose-400 focus:ring-rose-100 focus:border-rose-500' 
-                      : 'border-slate-300 dark:border-slate-700 focus:ring-cyan-200 dark:focus:ring-cyan-800 focus:border-cyan-500'
+                      : 'border-slate-300 focus:ring-cyan-200 focus:border-cyan-500'
                   }`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
 
               {passwordError && (
-                <div className="flex items-center gap-1.5 text-[11px] text-rose-600 dark:text-rose-400 font-medium pt-1">
+                <div className="flex items-center gap-1.5 text-[11px] text-rose-600 font-medium pt-1">
                   <AlertCircle size={13} className="shrink-0" />
                   <span>{passwordError}</span>
                 </div>
@@ -354,19 +293,19 @@ export default function LoginPage() {
             {/* Remember Me & Forgot Password */}
             {mode === 'signin' && (
               <div className="flex items-center justify-between pt-1">
-                <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded border-slate-300 dark:border-slate-600 text-cyan-600 focus:ring-cyan-500"
+                    className="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"
                   />
                   <span>Remember this device</span>
                 </label>
                 <button
                   type="button"
                   onClick={() => alert('Password reset instructions will be sent to your verified email.')}
-                  className="text-xs font-semibold text-cyan-700 dark:text-cyan-400 hover:text-cyan-800"
+                  className="text-xs font-semibold text-cyan-700 hover:text-cyan-800"
                 >
                   Forgot password?
                 </button>
@@ -378,38 +317,23 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isLoading || Boolean(emailError)}
-                className="btn-lightup w-full bg-navy-800 hover:bg-navy-900 dark:bg-cyan-600 dark:hover:bg-cyan-500 disabled:opacity-50 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-sm hover:shadow flex items-center justify-center gap-2"
+                className="btn-lightup w-full bg-navy-800 hover:bg-navy-900 disabled:opacity-50 text-white text-xs font-bold py-3 px-4 rounded-xl shadow-sm hover:shadow flex items-center justify-center gap-2"
               >
                 <span>{isLoading ? 'Authenticating...' : mode === 'signin' ? 'Sign In to Workspace' : 'Create Free Account'}</span>
-                <ArrowRight size={15} className="text-cyan-400 dark:text-white" />
+                <ArrowRight size={15} className="text-cyan-400" />
               </button>
             </div>
           </form>
-
-          {/* Demo Quick-Login Helper */}
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-2">
-            <span className="text-[11px] text-slate-500 dark:text-slate-400 block text-center font-medium">
-              Want to test instantly without creating an account?
-            </span>
-            <button
-              type="button"
-              onClick={handleDemoSignIn}
-              className="btn-lightup-subtle w-full bg-cyan-50 dark:bg-cyan-950/60 hover:bg-cyan-100 dark:hover:bg-cyan-900/60 text-cyan-900 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800 text-xs font-bold py-2.5 px-4 rounded-xl transition flex items-center justify-center gap-2"
-            >
-              <Sparkles size={14} className="text-cyan-600 dark:text-cyan-400" />
-              <span>Instant 1-Click Demo Login</span>
-            </button>
-          </div>
         </div>
 
         {/* Security badge & Parent Company footer */}
-        <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1.5">
+        <div className="mt-6 text-center text-xs text-slate-500 space-y-1.5">
           <div className="flex items-center justify-center gap-2">
-            <ShieldCheck size={15} className="text-emerald-600 dark:text-emerald-400" />
+            <ShieldCheck size={15} className="text-emerald-600" />
             <span>Client-Side PII Encryption • Zero Document Sale Policy</span>
           </div>
-          <p className="text-[11px] text-slate-400 dark:text-slate-500">
-            FormPilot AI is a product of <a href="https://www.innovchromatic.tech" target="_blank" rel="noopener noreferrer" className="font-semibold text-slate-700 dark:text-slate-300 hover:text-cyan-600 dark:hover:text-cyan-400 underline">InnovChromatic</a> (<a href="https://www.innovchromatic.tech" target="_blank" rel="noopener noreferrer" className="text-cyan-600 dark:text-cyan-400 hover:underline">www.innovchromatic.tech</a>)
+          <p className="text-[11px] text-slate-400">
+            FormPilot AI is a product of <a href="https://www.innovchromatic.tech" target="_blank" rel="noopener noreferrer" className="font-semibold text-slate-700 hover:text-cyan-600 underline">InnovChromatic</a> (<a href="https://www.innovchromatic.tech" target="_blank" rel="noopener noreferrer" className="text-cyan-600 hover:underline">www.innovchromatic.tech</a>)
           </p>
         </div>
       </div>

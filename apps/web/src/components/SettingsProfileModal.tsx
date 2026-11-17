@@ -560,14 +560,14 @@ export default function SettingsProfileModal({
                   <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <h5 className="font-extrabold text-sm text-navy-800 dark:text-white truncate">
-                        {user?.name || 'Demo Pilot'}
+                        {user?.name || 'Account'}
                       </h5>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-100 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 uppercase">
                         {user?.role || 'user'}
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                      {user?.email || 'demo@formpilot.ai'}
+                      {user?.email || ''}
                     </p>
                     <span className="text-[10.5px] text-slate-400 dark:text-slate-500 block">
                       User ID: <code className="font-mono text-slate-600 dark:text-slate-300">{user?.id || 'usr_demo_1'}</code>
@@ -637,11 +637,8 @@ export default function SettingsProfileModal({
               <div className="space-y-6">
                 <div>
                   <h4 className="text-base font-extrabold text-navy-800 dark:text-white">
-                    Chrome Extension & Testing Artifacts
+                    Extension
                   </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Download the browser companion for live in-tab autofills and sample profiles for quick testing.
-                  </p>
                 </div>
 
                 {/* Extension Download Card */}
@@ -679,32 +676,6 @@ export default function SettingsProfileModal({
                       <li>Navigate to <code className="text-navy-800 dark:text-cyan-300 font-mono bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">chrome://extensions</code> in Chrome and switch on <strong>Developer mode</strong>.</li>
                       <li>Click <strong>Load unpacked</strong> and select the unzipped directory.</li>
                     </ol>
-                  </div>
-                </div>
-
-                {/* Sample Profile Testing Card */}
-                <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-850 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
-                        Knowledge Base Seed
-                      </span>
-                      <h5 className="text-sm font-extrabold text-navy-800 dark:text-white">
-                        Sample Applicant Reference Profile (.txt)
-                      </h5>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 max-w-lg">
-                        Test document containing sample employment history, GPA, credentials, and contact details to verify autofill reasoning.
-                      </p>
-                    </div>
-
-                    <a
-                      href={SITE_CONFIG.downloads.sampleProfileTxt}
-                      download="sample-reference-profile.txt"
-                      className="btn-lightup-subtle inline-flex items-center gap-1.5 text-navy-800 dark:text-cyan-300 border border-slate-200 dark:border-slate-700 text-xs font-bold px-4 py-2 rounded-xl transition shrink-0 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 self-start sm:self-center"
-                    >
-                      <FileText size={14} className="text-cyan-600" />
-                      <span>Download Sample</span>
-                    </a>
                   </div>
                 </div>
               </div>

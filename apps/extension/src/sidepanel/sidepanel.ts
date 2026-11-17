@@ -85,10 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   const apiBase = await getApiBase();
-  const serverLabel = document.querySelector('.subtext');
-  if (serverLabel) serverLabel.textContent = new URL(apiBase).host;
 
-  // 3. Open Web App Knowledge Base Manager
   btnManageKb?.addEventListener('click', () => {
     chrome.tabs.create({ url: `${apiBase}/dashboard` });
   });
@@ -280,7 +277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const applyRes = await chrome.tabs.sendMessage(tab.id, {
           type: 'APPLY_PREDICTIONS',
-          payload: { predictions, showHeatmap: toggleHeatmap?.checked ?? true }
+          payload: { predictions, showHeatmap: toggleHeatmap?.checked ?? false }
         });
         totalApplied += applyRes?.appliedCount || 0;
         stepsFilled += 1;
@@ -313,7 +310,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       fillStatus.innerText = totalApplied > 0
-        ? `Filled ${totalApplied} fields across ${stepsFilled} step${stepsFilled === 1 ? '' : 's'}. Submit the form on the website to save it in history.`
+        ? `Filled ${totalApplied} fields.`
         : 'The form was read, but no answers could be written into its fields.';
     } catch (err: any) {
       console.error('Fill form error:', err);

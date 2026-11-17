@@ -151,7 +151,7 @@ export async function reasonAboutForm(input: {
     '',
     'Rules:',
     '- Use the heading to choose among similar facts. A project link should match the program named in the heading.',
-    '- Copy a fact only when a passage states it. If none of the passages answer the field, set value to an empty string.',
+    '- Write only the short value that belongs in the box. A name, date, number, sentence, or URL. Do not paste the passage, a paragraph, or the document heading.',
     '- Never invent a name, date, phone number, employer, or URL.',
     '- When options are present, value must be exactly one option value. For a checkbox group, join every matching option value with " | ".',
     '- confidence is a number from 0 to 1. Use 0 when value is empty.',

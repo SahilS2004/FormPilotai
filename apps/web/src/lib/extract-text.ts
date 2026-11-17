@@ -43,7 +43,22 @@ async function extractDocx(buffer: Buffer): Promise<string> {
   const mammothModule = await import('mammoth');
   const mammoth = (mammothModule as { default?: { extractRawText: (input: { buffer: Buffer }) => Promise<{ value: string }> } }).default || mammothModule;
   const result = await mammoth.extractRawText({ buffer });
-  return result.value || '';
+  const links = await extractDocxLinks(buffer);
+  const body = result.value || '';
+  return links.length > 0 ? `${body}\n\nLinks:\n${links.join('\n')}` : body;
+}
+
+async function extractDocxLinks(buffer: Buffer): Promise<string[]> {
+  try {
+    const JSZip = (await import('jszip')).default;
+    const zip = await JSZip.loadAsync(buffer);
+    const rels = zip.file('word/_rels/document.xml.rels');
+    if (!rels) return [];
+    const xml = await rels.async('string');
+    return uniqueUrls([...xml.matchAll(/Target="(https?:\/\/[^"]+)"/g)].map((match) => decodeXmlText(match[1])));
+  } catch {
+    return [];
+  }
 }
 
 async function extractPdf(buffer: Buffer): Promise<string> {
@@ -51,7 +66,7 @@ async function extractPdf(buffer: Buffer): Promise<string> {
   const result = await extractText(new Uint8Array(buffer), { mergePages: true });
   const text = result.text as string | string[];
   const body = Array.isArray(text) ? text.join('\n\n') : text;
-  const links = await extractPdfLinks(buffer);
+  const links = uniqueUrls([...(await extractPdfLinks(buffer)), ...urlsFromBytes(buffer)]);
   return links.length > 0 ? `${body}\n\nLinks:\n${links.join('\n')}` : body;
 }
 
@@ -65,8 +80,9 @@ export async function extractPdfLinks(bytes: Buffer): Promise<string[]> {
       const page = await pdf.getPage(pageNumber);
       const annotations = await page.getAnnotations();
       for (const annotation of annotations) {
-        const url = annotation.url || annotation.unsafeUrl;
-        if (typeof url === 'string' && /^https?:\/\//i.test(url)) urls.add(url);
+        const raw = typeof annotation.url === 'string' ? annotation.url : annotation.unsafeUrl;
+        const url = typeof raw === 'string' ? raw : '';
+        if (/^https?:\/\//i.test(url)) urls.add(url.split('#')[0]);
       }
     }
     return [...urls];
@@ -74,6 +90,22 @@ export async function extractPdfLinks(bytes: Buffer): Promise<string[]> {
     console.warn('[extractPdfLinks]', error);
     return [];
   }
+}
+
+function uniqueUrls(values: string[]): string[] {
+  const urls = new Set<string>();
+  for (const value of values) {
+    const cleaned = value.replace(/[),.;]+$/g, '').trim();
+    if (/^https?:\/\//i.test(cleaned)) urls.add(cleaned);
+  }
+  return [...urls];
+}
+
+function urlsFromBytes(buffer: Buffer): string[] {
+  const raw = buffer.toString('latin1');
+  const plain = raw.match(/https?:\/\/[^\s<>"')\]]+/gi) || [];
+  const embedded = [...raw.matchAll(/\/URI\s*\(([^)]+)\)/g)].map((match) => match[1]);
+  return uniqueUrls([...plain, ...embedded]);
 }
 
 /**
