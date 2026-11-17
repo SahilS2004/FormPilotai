@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:3000';
+import { apiFetch } from './api';
 
 interface ReminderJob {
   id: string;
@@ -27,7 +27,7 @@ function waitForTab(tabId: number): Promise<void> {
 }
 
 async function finish(id: string, status: string, executionLog: string) {
-  await fetch(`${API_BASE}/api/reminders`, {
+  await apiFetch('/api/reminders', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -40,7 +40,7 @@ async function finish(id: string, status: string, executionLog: string) {
 }
 
 async function executeReminder(job: ReminderJob) {
-  const claim = await fetch(`${API_BASE}/api/reminders`, {
+  const claim = await apiFetch('/api/reminders', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id: job.id, claim: true }),
@@ -75,7 +75,7 @@ async function executeReminder(job: ReminderJob) {
     return;
   }
 
-  const fillRes = await fetch(`${API_BASE}/api/fill-form`, {
+  const fillRes = await apiFetch('/api/fill-form', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ schema: extracted.schema, tone: job.tone || 'professional' }),
@@ -133,7 +133,7 @@ async function executeReminder(job: ReminderJob) {
 
 export async function runActionableReminders() {
   try {
-    const res = await fetch(`${API_BASE}/api/reminders?actionable=1`);
+    const res = await apiFetch('/api/reminders?actionable=1');
     if (!res.ok) return;
     const data = await res.json();
     for (const job of data.reminders || []) {

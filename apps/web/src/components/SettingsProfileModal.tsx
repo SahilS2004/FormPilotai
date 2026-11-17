@@ -444,7 +444,7 @@ export default function SettingsProfileModal({
                     Agent Intelligence & Model Gateway
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Connect your own API key (BYOK) or let FormPilot route requests through our built-in high-performance model.
+                    Connect your own API key later, or use the Gemini key configured on the server. The page heading is sent with every form so the model can tell what you are filling.
                   </p>
                 </div>
 
@@ -477,7 +477,7 @@ export default function SettingsProfileModal({
                         {statusMessage}
                       </p>
                       <p className="text-[11.5px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                        FormPilot autonomously reasons over complex DOM trees and grounds answers against verified Knowledge Base citations using {SITE_CONFIG.defaultModel.name}.
+                        FormPilot reads the page heading, retrieves matching passages, and answers each field with {SITE_CONFIG.defaultModel.name}. If that model is out of quota, it uses {SITE_CONFIG.defaultModel.fallback}. Embeddings use {SITE_CONFIG.defaultModel.embedding}. No local model runs.
                       </p>
                     </div>
                   </div>
@@ -518,7 +518,7 @@ export default function SettingsProfileModal({
                   </div>
 
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    If connected, autofill calls use your credentials. If empty or invalid, the platform smoothly falls back to the default backend model without interruption.
+                    If a key is saved here it stays in this browser only. The server still fills forms with the Gemini key configured for this deployment.
                   </p>
                 </div>
 

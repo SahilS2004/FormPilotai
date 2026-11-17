@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { fetchAllDocuments, fetchDocumentFilePayload } from '@/lib/db';
-import { repairOversizedChunks, searchKeywordChunks, searchVectorChunks } from '@/lib/vector';
+import { reindexPendingDocuments, repairOversizedChunks, searchKeywordChunks, searchVectorChunks } from '@/lib/vector';
 import { extractPdfLinks } from '@/lib/extract-text';
 import { ensureSubmittedFormsIndexed, submittedFormDocIds } from '@/lib/history-index';
-import { FormSchema, FormField, PredictedFieldValue, KBDocument, VectorDocumentChunk } from '@formpilot/shared';
+import { reasonAboutForm, GeminiFieldAnswer } from '@/lib/gemini';
+import { FormSchema, FormField, PredictedFieldValue, KBDocument, VectorDocumentChunk, PersonaTone } from '@formpilot/shared';
 import { ONBOARDING_DOC_ID } from '@/lib/onboarding-profile';
 
 export async function POST(req: Request) {
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
       eligibleDocs = allDocs.filter((d) => d.isEnabled !== false);
     }
 
+    await reindexPendingDocuments();
     await repairOversizedChunks();
     await ensureSubmittedFormsIndexed();
 
@@ -36,6 +38,8 @@ export async function POST(req: Request) {
     const missingDocs: Array<{ missingDocumentName: string; reason: string }> = [];
     const docIds = eligibleDocs.map((doc) => doc.id);
     const documentLinks = await loadDocumentLinks(eligibleDocs);
+    const formContext = [schema.title, schema.url].filter(Boolean).join('\n').slice(0, 700);
+    const pending: Array<{ unit: FieldUnit; kind: FieldKind; retrieved: VectorDocumentChunk[] }> = [];
 
     for (const unit of groupFields(schema.fields)) {
       const field = unit.question;
@@ -102,17 +106,55 @@ export async function POST(req: Request) {
       }
 
       const kind = classifyField(field);
-      const retrieved = await retrieveForField(field, kind, docIds, submittedFormDocIds());
-      if (unit.kind === 'choice') {
-        predictions.push(...answerChoice(unit, retrieved));
+      const retrieved = await retrieveForField(field, kind, docIds, submittedFormDocIds(), formContext);
+      pending.push({ unit, kind, retrieved });
+    }
+
+    let modelAnswers = new Map<string, GeminiFieldAnswer>();
+    try {
+      const answers = await reasonAboutForm({
+        title: schema.title || '',
+        url: schema.url || '',
+        fields: pending.map(({ unit, retrieved }) => ({
+          id: unit.question.id,
+          label: unit.question.label || unit.question.name || 'Question',
+          type: unit.question.type,
+          options: (unit.question.options || []).map((option) => ({
+            label: option.label,
+            value: option.value || option.label,
+          })),
+          passages: retrieved.slice(0, 6).map((chunk) => ({
+            documentName: chunk.documentName,
+            excerpt: chunk.content.replace(/\s+/g, ' ').trim().slice(0, 700),
+          })),
+        })),
+      });
+      modelAnswers = new Map(answers.map((answer) => [answer.fieldId, answer]));
+    } catch (error) {
+      console.warn('[fill] Gemini reasoning unavailable, using retrieved passages', error);
+    }
+
+    for (const item of pending) {
+      const fromModel = predictionsFromModel(item.unit, modelAnswers.get(item.unit.question.id), item.retrieved);
+      if (fromModel) {
+        predictions.push(...fromModel);
         continue;
       }
-
-      const grounded = shapeForControl(field, answerFromChunks(kind, retrieved, field), retrieved, documentLinks, schema);
+      if (item.unit.kind === 'choice') {
+        predictions.push(...answerChoice(item.unit, item.retrieved));
+        continue;
+      }
+      const grounded = shapeForControl(
+        item.unit.question,
+        answerFromChunks(item.kind, item.retrieved, item.unit.question),
+        item.retrieved,
+        documentLinks,
+        schema
+      );
       predictions.push({
-        fieldId: field.id,
-        selector: field.selector,
-        placeholder: field.placeholder,
+        fieldId: item.unit.question.id,
+        selector: item.unit.question.selector,
+        placeholder: item.unit.question.placeholder,
         value: grounded.value,
         confidence: grounded.confidence,
         confidenceLevel: grounded.confidence >= 0.9 ? 'high' : grounded.confidence >= 0.5 ? 'medium' : 'low',
@@ -190,14 +232,75 @@ function groupFields(fields: FormField[]): FieldUnit[] {
   return units;
 }
 
+function predictionsFromModel(
+  unit: FieldUnit,
+  answer: GeminiFieldAnswer | undefined,
+  retrieved: VectorDocumentChunk[]
+): PredictedFieldValue[] | null {
+  const value = answer?.value?.trim() || '';
+  if (!answer || !value) return null;
+  const citationChunk = retrieved.find((chunk) => chunk.documentName === answer.documentName) || retrieved[0];
+  const citation = citationChunk ? {
+    documentId: citationChunk.documentId,
+    documentName: answer.documentName || citationChunk.documentName,
+    excerpt: (answer.excerpt || citationChunk.content).replace(/\s+/g, ' ').trim().slice(0, 180),
+  } : undefined;
+  const confidence = answer.confidence || 0.8;
+  const rationale = answer.rationale || 'Answered from the page heading and the matching passage.';
+
+  if (unit.kind === 'single') {
+    return [{
+      fieldId: unit.question.id,
+      selector: unit.question.selector,
+      placeholder: unit.question.placeholder,
+      value,
+      confidence,
+      confidenceLevel: confidence >= 0.9 ? 'high' : confidence >= 0.5 ? 'medium' : 'low',
+      rationale,
+      citation,
+    }];
+  }
+
+  const wanted = new Set(value.split('|').map((part) => part.trim().toLowerCase()).filter(Boolean));
+  const options = unit.question.options || [];
+  const winners = options.filter((option) => wanted.has((option.value || '').toLowerCase()) || wanted.has(option.label.toLowerCase()));
+  if (winners.length === 0) return null;
+  if (unit.members.length === 1) {
+    const winner = winners[0];
+    return [{
+      fieldId: unit.question.id,
+      selector: winner.selector || unit.question.selector,
+      placeholder: unit.question.placeholder,
+      value: unit.question.type === 'select' ? winner.value || winner.label : winner.value || 'true',
+      confidence,
+      confidenceLevel: confidence >= 0.9 ? 'high' : 'medium',
+      rationale,
+      citation,
+    }];
+  }
+  return unit.members.map((member) => {
+    const winner = winners.find((option) => option.label === member.label);
+    return {
+      fieldId: member.id,
+      selector: member.selector,
+      placeholder: member.placeholder,
+      value: winner ? 'true' : '',
+      confidence: winner ? confidence : 0.2,
+      confidenceLevel: winner ? 'medium' : 'low',
+      rationale: winner ? rationale : 'No option matched the knowledge base for this question.',
+      citation: winner ? citation : undefined,
+    };
+  });
+}
+
 function choiceQuestion(labels: string[]): string {
   const blob = labels.join(' ');
   if (/fresher|year|experience/i.test(blob)) return 'Relevant experience internships';
   return `Choose one of ${labels.join(', ')}`;
 }
 
-async function retrieveForField(field: FormField, kind: FieldKind, docIds: string[], historyIds: string[]): Promise<VectorDocumentChunk[]> {
-  const query = questionQuery(field, kind);
+async function retrieveForField(field: FormField, kind: FieldKind, docIds: string[], historyIds: string[], formContext: string): Promise<VectorDocumentChunk[]> {
+  const query = `${questionQuery(field, kind)}\n${formContext}`.trim().slice(0, 1800);
   const terms = questionTerms(field, kind);
   const [chunks, profileChunks, historyChunks, keywordChunks] = await Promise.all([
     searchVectorChunks({ query, topK: 8, filterDocIds: docIds }),
@@ -475,7 +578,6 @@ function shapeForControl(
       ? { value: labeled, confidence: 0.75, rationale: 'Number retrieved for this question.', citation }
       : blank;
   }
-  if (/agree|consent|terms|privacy|subscribe/.test(label) && field.type === 'checkbox') return blank;
   return grounded;
 }
 
@@ -789,6 +891,7 @@ type FieldKind =
   | 'website'
   | 'postal'
   | 'country'
+  | 'address'
   | 'gender'
   | 'dob'
   | 'summary'
@@ -799,7 +902,7 @@ function classifyField(field: FormField): FieldKind {
   const key = blob.replace(/[^a-z]/g, '');
   const has = (...needles: string[]) => needles.some((needle) => key.includes(needle));
 
-  if (field.type === 'password' || has('password', 'passwd')) return 'skip';
+  if (has('password', 'passwd')) return 'skip';
   if (has('ssn', 'socialsecurity', 'ccnumber', 'cardnumber', 'cvc', 'cvv', 'ccexp', 'ccissuer', 'ccuname', 'cccst', 'drivlic', 'driverlic')) return 'skip';
   if (has('frstname', 'firstname', 'givenname') || blob.includes('first name')) return 'first_name';
   if (has('lastname', 'surname') || blob.includes('last name')) return 'last_name';

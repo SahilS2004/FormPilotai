@@ -7,7 +7,7 @@ import {
   PersonaTone, 
   AgentPromptConfig 
 } from '@formpilot/shared';
-import { resolveDatabaseUrl } from './env';
+import { databaseSsl, resolveDatabaseUrl, runtimeEnv } from './env';
 import { ensureDatabaseSchema } from './schema';
 import { 
   documentsStore, 
@@ -35,7 +35,8 @@ export function getDbPool(): Pool | null {
   if (!pool) {
     pool = new Pool({
       connectionString,
-      connectionTimeoutMillis: 2500,
+      ssl: databaseSsl(),
+      connectionTimeoutMillis: runtimeEnv('NODE_ENV') === 'production' ? 10000 : 2500,
       idleTimeoutMillis: 15000,
       max: 10,
     });

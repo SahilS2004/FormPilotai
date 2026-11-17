@@ -13,7 +13,6 @@
     "@formpilot/context-engine": "workspace:*",
     "@formpilot/dom-analyzer": "workspace:*",
     "@formpilot/shared": "workspace:*",
-    "@xenova/transformers": "^2.17.2",
     "jszip": "^3.10.2",
     "lucide-react": "^0.428.0",
     "mammoth": "^1.13.0",
