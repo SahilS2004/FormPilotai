@@ -196,15 +196,15 @@ export default function OnboardingTour({
 
       {/* Floating Guided Tour Card - Fully Responsive on Mobile & Desktop */}
       <div className="fixed inset-x-4 bottom-4 sm:inset-x-auto sm:bottom-8 sm:right-8 z-50 pointer-events-auto sm:max-w-md w-auto sm:w-full">
-        <div className="bg-white/95 backdrop-blur-xl border border-white/80 rounded-3xl shadow-[0_20px_60px_-15px_rgba(17,38,79,0.25),0_0_0_1px_rgba(226,232,240,0.8)] p-6 space-y-5 transition-all">
+        <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl shadow-[0_20px_60px_-15px_rgba(17,38,79,0.25),0_0_0_1px_rgba(226,232,240,0.8)] dark:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6)] p-6 space-y-5 transition-all text-slate-800 dark:text-slate-100">
           {/* Card Top Row */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-cyan-50 border border-cyan-200 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-xl bg-cyan-50 dark:bg-slate-800 border border-cyan-200 dark:border-slate-700 flex items-center justify-center">
                 {step.icon}
               </div>
               <div>
-                <span className="text-[10px] font-extrabold text-cyan-700 bg-cyan-50 px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-cyan-200">
+                <span className="text-[10px] font-extrabold text-cyan-700 dark:text-cyan-300 bg-cyan-50 dark:bg-cyan-950 px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-cyan-200 dark:border-cyan-800">
                   {step.badge}
                 </span>
               </div>
@@ -212,7 +212,7 @@ export default function OnboardingTour({
 
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-100 transition"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition"
               title="Skip Tour"
             >
               <X size={16} />
@@ -221,17 +221,17 @@ export default function OnboardingTour({
 
           {/* Card Content */}
           <div className="space-y-2">
-            <h3 className="text-base font-extrabold text-navy-800 tracking-tight">
+            <h3 className="text-base font-extrabold text-navy-800 dark:text-white tracking-tight">
               {step.title}
             </h3>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
               {step.description}
             </p>
           </div>
 
           {/* Pro Tip Callout */}
-          <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 flex items-start gap-2">
-            <Sparkles size={14} className="text-cyan-600 shrink-0 mt-0.5" />
+          <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-300 flex items-start gap-2">
+            <Sparkles size={14} className="text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
             <span>{step.hint}</span>
           </div>
 
@@ -246,8 +246,8 @@ export default function OnboardingTour({
                     idx === currentStepIndex 
                       ? 'w-6 bg-cyan-500' 
                       : idx < currentStepIndex 
-                        ? 'w-2 bg-navy-800' 
-                        : 'w-2 bg-slate-200'
+                        ? 'w-2 bg-navy-800 dark:bg-cyan-400' 
+                        : 'w-2 bg-slate-200 dark:bg-slate-700'
                   }`}
                 />
               ))}
@@ -258,7 +258,7 @@ export default function OnboardingTour({
               {currentStepIndex > 0 && (
                 <button
                   onClick={handlePrev}
-                  className="btn-lightup-subtle px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 border border-slate-200 hover:border-slate-300 transition flex items-center gap-1.5"
+                  className="btn-lightup-subtle px-3 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800 transition flex items-center gap-1.5"
                 >
                   <ArrowLeft size={13} />
                   <span>Back</span>
@@ -267,13 +267,13 @@ export default function OnboardingTour({
 
               <button
                 onClick={handleNext}
-                className="btn-lightup bg-navy-800 hover:bg-navy-900 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs"
+                className="btn-lightup bg-navy-800 hover:bg-navy-900 dark:bg-cyan-600 dark:hover:bg-cyan-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs"
               >
                 <span>{currentStepIndex === TOUR_STEPS.length - 1 ? 'Finish Tour' : 'Next Step'}</span>
                 {currentStepIndex === TOUR_STEPS.length - 1 ? (
-                  <CheckCircle2 size={14} className="text-cyan-400" />
+                  <CheckCircle2 size={14} className="text-cyan-400 dark:text-white" />
                 ) : (
-                  <ArrowRight size={14} className="text-cyan-400" />
+                  <ArrowRight size={14} className="text-cyan-400 dark:text-white" />
                 )}
               </button>
             </div>

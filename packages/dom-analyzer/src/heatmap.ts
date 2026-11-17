@@ -15,7 +15,23 @@ export class ConfidenceHeatmapRenderer {
     this.clearHeatmap();
 
     predictions.forEach((pred) => {
-      const el = document.getElementById(pred.fieldId) || document.querySelector(`[name="${pred.fieldId}"]`);
+      let el: Element | null = null;
+      if (pred.selector) {
+        try {
+          const matches = Array.from(document.querySelectorAll(pred.selector));
+          if (matches.length === 1) el = matches[0];
+        } catch {
+          el = null;
+        }
+      }
+      if (!el && pred.placeholder) {
+        el = Array.from(document.querySelectorAll('input, textarea, select')).find(
+          (node) => node.getAttribute('placeholder') === pred.placeholder
+        ) || null;
+      }
+      if (!el) {
+        el = document.getElementById(pred.fieldId) || document.querySelector(`[name="${pred.fieldId}"]`);
+      }
       if (!el || !(el instanceof HTMLElement)) return;
 
       const level = pred.confidenceLevel;

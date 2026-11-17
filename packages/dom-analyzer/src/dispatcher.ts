@@ -5,32 +5,88 @@
  */
 export class SyntheticEventDispatcher {
   /**
-   * Sets value on an input element and dispatches full synthetic event cascade
+   * Sets value on an input element and dispatches full synthetic event cascade.
+   * Supports text, textarea, select, checkbox, radio, and programmatic file attachment on <input type="file">
    */
-  public static setInputValue(element: HTMLElement, value: string | boolean | string[]): boolean {
+  public static setInputValue(
+    element: HTMLElement, 
+    value: string | boolean | string[],
+    filePayload?: {
+      fileName: string;
+      mimeType: string;
+      fileBase64?: string;
+      textContent?: string;
+    }
+  ): boolean {
     if (!element) return false;
 
     element.focus();
 
     if (element instanceof HTMLInputElement) {
-      if (element.type === 'checkbox') {
-        const boolVal = Boolean(value);
-        if (element.checked !== boolVal) {
-          element.checked = boolVal;
-          this.dispatchEvents(element, ['click', 'input', 'change']);
+      // 1. File Upload Inputs (<input type="file">)
+      if (element.type === 'file') {
+        try {
+          const fileName = filePayload?.fileName || (typeof value === 'string' && value ? value : 'Alex_Morgan_Resume_2026.pdf');
+          const mimeType = filePayload?.mimeType || 'application/pdf';
+          let blob: Blob;
+
+          if (filePayload?.fileBase64) {
+            try {
+              const cleanBase64 = filePayload.fileBase64.replace(/^data:[^;]+;base64,/, '');
+              const binaryString = atob(cleanBase64);
+              const len = binaryString.length;
+              const bytes = new Uint8Array(len);
+              for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+              }
+              blob = new Blob([bytes], { type: mimeType });
+            } catch (b64Err) {
+              element.blur();
+              return false;
+            }
+          } else {
+            element.blur();
+            return false;
+          }
+
+          const file = new File([blob], fileName, { type: mimeType });
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          element.files = dt.files;
+
+          this.dispatchEvents(element, ['input', 'change']);
+          element.blur();
+          return true;
+        } catch (fileErr) {
+          console.warn('[SyntheticEventDispatcher] File attachment error:', fileErr);
+          element.blur();
+          return false;
         }
+      }
+
+      if (element.type === 'checkbox') {
+        const boolVal = value === true || value === 'true' || value === 'Yes';
+        if (element.checked !== boolVal) element.click();
         element.blur();
-        return true;
+        return element.checked === boolVal;
       }
 
       if (element.type === 'radio') {
         const strVal = String(value);
-        if (element.value === strVal || strVal === 'true') {
-          element.checked = true;
-          this.dispatchEvents(element, ['click', 'input', 'change']);
+        const matches = element.value === strVal
+          || strVal === 'true'
+          || element.value.toLowerCase() === strVal.toLowerCase();
+        if (!matches) {
+          element.blur();
+          return false;
+        }
+        if (!element.checked) {
+          const label = element.closest('label');
+          if (label instanceof HTMLElement) label.click();
+          else element.click();
         }
         element.blur();
-        return true;
+        return element.checked;
       }
 
       // Normal text/number/email/date/tel input

@@ -1,38 +1,219 @@
-import { KBDocument, FormSchema, PredictedFieldValue, DocumentRecommendation } from '@formpilot/shared';
+import { KBDocument, FormSchema, PredictedFieldValue, DocumentRecommendation, PersonaTone } from '@formpilot/shared';
 
 /**
  * FormPilot Side Panel Controller
+ * Handles DOM field scanning, in-extension persona steering,
+ * context snippet clipping, and autonomous form autofills.
  */
+
+const SUN_ICON = `<svg class="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>`;
+
+const MOON_ICON = `<svg class="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>`;
+
+const PLUS_ICON = `<svg class="icon-plus" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
+
+const MINUS_ICON = `<svg class="icon-minus" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>`;
 
 let currentDocuments: KBDocument[] = [];
 let lastPredictions: PredictedFieldValue[] = [];
+let activeTone: PersonaTone = 'professional';
+let isDarkMode = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // UI Elements
   const btnManageKb = document.getElementById('btn-manage-kb');
+  const btnThemeToggle = document.getElementById('btn-theme-toggle');
+  const themeIconWrap = document.getElementById('theme-icon-wrap');
+  const selectTone = document.getElementById('select-tone') as HTMLSelectElement | null;
+  const btnScanFields = document.getElementById('btn-scan-fields');
+  const scanBadge = document.getElementById('scan-badge');
   const btnFillForm = document.getElementById('btn-fill-form');
   const fillStatus = document.getElementById('fill-status');
   const docList = document.getElementById('doc-list');
   const activeBadge = document.getElementById('active-docs-badge');
-  const toggleHeatmap = document.getElementById('toggle-heatmap') as HTMLInputElement;
+  const btnSyncKb = document.getElementById('btn-sync-kb');
+  const toggleHeatmap = document.getElementById('toggle-heatmap') as HTMLInputElement | null;
   const multiStepCard = document.getElementById('multistep-card');
   const btnNextStep = document.getElementById('btn-next-step');
   const gapAlertCard = document.getElementById('gap-alert-card');
   const btnGapUpload = document.getElementById('btn-gap-upload');
 
-  // 1. Open Web App Knowledge Base Manager
-  btnManageKb?.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'http://localhost:3000' });
+  // Snippet Elements
+  const btnToggleSnippet = document.getElementById('btn-toggle-snippet');
+  const snippetBody = document.getElementById('snippet-body');
+  const snippetExpandIndicator = document.getElementById('snippet-expand-indicator');
+  const inputSnippetText = document.getElementById('input-snippet-text') as HTMLTextAreaElement | null;
+  const btnSaveSnippet = document.getElementById('btn-save-snippet');
+  const snippetSaveStatus = document.getElementById('snippet-save-status');
+
+  // 1. Initialize Theme
+  const { formpilot_theme } = await chrome.storage.local.get('formpilot_theme');
+  if (formpilot_theme === 'dark' || (!formpilot_theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+    isDarkMode = true;
+    document.documentElement.classList.add('dark');
+    if (themeIconWrap) themeIconWrap.innerHTML = SUN_ICON;
+  } else {
+    isDarkMode = false;
+    document.documentElement.classList.remove('dark');
+    if (themeIconWrap) themeIconWrap.innerHTML = MOON_ICON;
+  }
+
+  btnThemeToggle?.addEventListener('click', async () => {
+    isDarkMode = !isDarkMode;
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      if (themeIconWrap) themeIconWrap.innerHTML = SUN_ICON;
+      await chrome.storage.local.set({ formpilot_theme: 'dark' });
+    } else {
+      document.documentElement.classList.remove('dark');
+      if (themeIconWrap) themeIconWrap.innerHTML = MOON_ICON;
+      await chrome.storage.local.set({ formpilot_theme: 'light' });
+    }
   });
 
-  // 2. Load Documents
+  // 2. Initialize Persona Tone
+  const { formpilot_tone } = await chrome.storage.local.get('formpilot_tone');
+  if (formpilot_tone && selectTone) {
+    activeTone = formpilot_tone;
+    selectTone.value = formpilot_tone;
+  }
+
+  selectTone?.addEventListener('change', async () => {
+    activeTone = (selectTone.value as PersonaTone) || 'professional';
+    await chrome.storage.local.set({ formpilot_tone: activeTone });
+  });
+
+  // 3. Open Web App Knowledge Base Manager
+  btnManageKb?.addEventListener('click', () => {
+    chrome.tabs.create({ url: 'http://localhost:3000/dashboard' });
+  });
+
+  // 4. Load & Sync Documents
   await loadDocuments();
 
-  // 3. Handle Fill Form
+  // Network & Messaging Resilience Helpers
+  async function queryFormPredictions(payload: any) {
+    try {
+      const res = await fetch('http://localhost:3000/api/fill-form', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
+      const data = await res.json();
+      return { success: true, ...data };
+    } catch (err: any) {
+      try {
+        return await chrome.runtime.sendMessage({ type: 'SUBMIT_FORM_FILL', payload });
+      } catch (e: any) {
+        throw new Error(err.message || 'Could not connect to FormPilot server at http://localhost:3000');
+      }
+    }
+  }
+
+  async function syncDocumentsApi() {
+    try {
+      const res = await fetch('http://localhost:3000/api/documents');
+      if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
+      const data = await res.json();
+      await chrome.storage.local.set({ cachedDocuments: data.documents || [] });
+      return { success: true, documents: data.documents || [] };
+    } catch (err: any) {
+      try {
+        return await chrome.runtime.sendMessage({ type: 'SYNC_DOCUMENTS' });
+      } catch (e: any) {
+        throw new Error(err.message || 'Failed to sync with http://localhost:3000/api/documents');
+      }
+    }
+  }
+
+  async function ensureTabConnected(tabId: number): Promise<boolean> {
+    try {
+      const ping = await chrome.tabs.sendMessage(tabId, { type: 'PING' });
+      if (ping?.pong) return true;
+    } catch {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          files: ['content.js']
+        });
+        await new Promise((r) => setTimeout(r, 150));
+        return true;
+      } catch (err) {
+        console.warn('[FormPilot] Dynamic script injection unavailable on this tab:', err);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  btnSyncKb?.addEventListener('click', async () => {
+    const syncText = btnSyncKb.querySelector('span');
+    if (syncText) syncText.innerText = 'Syncing...';
+    btnSyncKb.classList.add('syncing');
+    try {
+      const res: any = await syncDocumentsApi();
+      if (res?.success && res.documents) {
+        currentDocuments = res.documents;
+        renderDocuments();
+      }
+    } catch (e: any) {
+      console.warn('Sync failed:', e);
+    } finally {
+      setTimeout(() => {
+        if (syncText) syncText.innerText = 'Sync';
+        btnSyncKb.classList.remove('syncing');
+      }, 500);
+    }
+  });
+
+  // 5. Scan & Highlight Fields on Active Webpage
+  btnScanFields?.addEventListener('click', async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) {
+      if (scanBadge) {
+        scanBadge.classList.remove('hidden');
+        scanBadge.innerText = 'Cannot connect to active tab';
+      }
+      return;
+    }
+
+    const connected = await ensureTabConnected(tab.id);
+    if (!connected) {
+      if (scanBadge) {
+        scanBadge.classList.remove('hidden');
+        scanBadge.innerText = 'Cannot scan this tab (e.g. chrome:// internal page). Please open a regular webpage.';
+      }
+      return;
+    }
+
+    try {
+      const res = await chrome.tabs.sendMessage(tab.id, { type: 'HIGHLIGHT_FIELDS' });
+      if (res?.success) {
+        if (scanBadge) {
+          scanBadge.classList.remove('hidden');
+          scanBadge.innerText = `🔍 ${res.count} interactive fields detected & highlighted`;
+        }
+      } else {
+        if (scanBadge) {
+          scanBadge.classList.remove('hidden');
+          scanBadge.innerText = res?.error || 'No fillable fields detected on this page';
+        }
+      }
+    } catch (err: any) {
+      if (scanBadge) {
+        scanBadge.classList.remove('hidden');
+        scanBadge.innerText = 'Please refresh the tab to connect FormPilot scanner';
+      }
+    }
+  });
+
+  // 6. Handle Fill Form. A Next button means another step, so keep filling until it is gone.
   btnFillForm?.addEventListener('click', async () => {
     if (!fillStatus) return;
 
     fillStatus.classList.remove('hidden');
-    fillStatus.innerText = 'Scanning webpage DOM fields...';
+    fillStatus.innerText = 'Connecting to webpage DOM...';
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) {
@@ -40,89 +221,102 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    const connected = await ensureTabConnected(tab.id);
+    if (!connected) {
+      fillStatus.innerText = 'Error: Cannot inject scanner into this tab (e.g. chrome:// page). Please open a regular web page.';
+      return;
+    }
+
+    const signatureOf = (schema: FormSchema) => schema.fields.map((field) => `${field.label}|${field.type}|${field.name || ''}`).join('||');
+    const seenSteps = new Set<string>();
+    let totalApplied = 0;
+    let stepsFilled = 0;
+
     try {
-      // Step A: Extract Schema from Content Script
-      const schemaRes = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_SCHEMA' });
-      if (!schemaRes?.success || !schemaRes.schema) {
-        fillStatus.innerText = 'No fillable form fields detected on page';
-        return;
+      for (let step = 0; step < 8; step += 1) {
+        fillStatus.innerText = step === 0 ? 'Extracting form structure...' : `Filling step ${step + 1}...`;
+        const schemaRes = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_SCHEMA' });
+        if (!schemaRes?.success || !schemaRes.schema) {
+          if (stepsFilled === 0) fillStatus.innerText = schemaRes?.error || 'No fillable form fields detected on page';
+          break;
+        }
+
+        const schema: FormSchema = schemaRes.schema;
+        const signature = signatureOf(schema);
+        if (seenSteps.has(signature)) break;
+        seenSteps.add(signature);
+
+        if (schema.stepInfo && multiStepCard) {
+          multiStepCard.classList.remove('hidden');
+          const counter = document.getElementById('step-counter');
+          if (counter) {
+            counter.innerText = `Step ${schema.stepInfo.currentStep}${schema.stepInfo.totalSteps ? ` of ${schema.stepInfo.totalSteps}` : ''}`;
+          }
+        }
+
+        fillStatus.innerText = `Found ${schema.fields.length} fields. Querying Knowledge Base (${activeTone} tone)...`;
+        const activeDocIds = currentDocuments.filter((d) => d.isEnabled).map((d) => d.id);
+        const fillRes: any = await queryFormPredictions({ schema, activeDocIds, tone: activeTone });
+        if (!fillRes?.success || !fillRes.predictions) {
+          fillStatus.innerText = fillRes?.error || 'Failed to reason form predictions';
+          return;
+        }
+
+        lastPredictions = fillRes.predictions;
+        const fieldsById = new Map(schema.fields.map((field) => [field.id, field]));
+        const predictions = fillRes.predictions.map((prediction: PredictedFieldValue) => {
+          const field = fieldsById.get(prediction.fieldId);
+          return {
+            ...prediction,
+            selector: prediction.selector || field?.selector,
+            placeholder: prediction.placeholder || field?.placeholder,
+          };
+        });
+
+        const applyRes = await chrome.tabs.sendMessage(tab.id, {
+          type: 'APPLY_PREDICTIONS',
+          payload: { predictions, showHeatmap: toggleHeatmap?.checked ?? true }
+        });
+        totalApplied += applyRes?.appliedCount || 0;
+        stepsFilled += 1;
+
+        if (fillRes.gapRecommendations && fillRes.gapRecommendations.length > 0 && gapAlertCard) {
+          const topGap: DocumentRecommendation = fillRes.gapRecommendations[0];
+          const gapReason = document.getElementById('gap-reason');
+          if (gapReason) gapReason.innerText = `Missing: ${topGap.missingDocumentName}. ${topGap.reason}`;
+          gapAlertCard.classList.remove('hidden');
+        }
+
+        const hasNext = Boolean(schema.stepInfo?.nextButtonSelector) && schema.stepInfo?.isFinalStep !== true;
+        if (!hasNext) break;
+
+        fillStatus.innerText = `Step ${stepsFilled} filled. Opening the next step...`;
+        const moved = await chrome.tabs.sendMessage(tab.id, { type: 'TRIGGER_NEXT_STEP' });
+        if (!moved?.navigated) break;
+
+        let changed = false;
+        const started = Date.now();
+        while (Date.now() - started < 4000) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          const nextSchema = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_SCHEMA' });
+          if (nextSchema?.schema && signatureOf(nextSchema.schema) !== signature) {
+            changed = true;
+            break;
+          }
+        }
+        if (!changed) break;
       }
 
-      const schema: FormSchema = schemaRes.schema;
-      fillStatus.innerText = `Found ${schema.fields.length} fields. Querying Knowledge Base...`;
-
-      // Check multi-step
-      if (schema.stepInfo && multiStepCard) {
-        multiStepCard.classList.remove('hidden');
-        const counter = document.getElementById('step-counter');
-        if (counter) {
-          counter.innerText = `Step ${schema.stepInfo.currentStep}${schema.stepInfo.totalSteps ? ` of ${schema.stepInfo.totalSteps}` : ''}`;
-        }
-      }
-
-      // Step B: Query Backend Context Engine
-      const activeDocIds = currentDocuments.filter((d) => d.isEnabled).map((d) => d.id);
-      const fillRes: any = await chrome.runtime.sendMessage({
-        type: 'SUBMIT_FORM_FILL',
-        payload: {
-          schema,
-          activeDocIds
-        }
-      });
-
-      if (!fillRes?.success || !fillRes.predictions) {
-        fillStatus.innerText = 'Failed to reason form predictions';
-        return;
-      }
-
-      lastPredictions = fillRes.predictions;
-
-      // Step C: Apply Predictions to DOM
-      const applyRes = await chrome.tabs.sendMessage(tab.id, {
-        type: 'APPLY_PREDICTIONS',
-        payload: {
-          predictions: fillRes.predictions,
-          showHeatmap: toggleHeatmap?.checked ?? true
-        }
-      });
-
-      fillStatus.innerText = `✓ Successfully filled ${applyRes.appliedCount || schema.fields.length} fields!`;
-
-      // Step D: Show Document Gap Alert if missing documents were detected
-      if (fillRes.gapRecommendations && fillRes.gapRecommendations.length > 0 && gapAlertCard) {
-        const topGap: DocumentRecommendation = fillRes.gapRecommendations[0];
-        const gapReason = document.getElementById('gap-reason');
-        if (gapReason) {
-          gapReason.innerText = `Missing: ${topGap.missingDocumentName}. ${topGap.reason}`;
-        }
-        gapAlertCard.classList.remove('hidden');
-      }
-
-      // Step E: Record to History
-      await chrome.runtime.sendMessage({
-        type: 'RECORD_SUBMISSION',
-        payload: {
-          domain: schema.domain,
-          url: schema.url,
-          formTitle: schema.title,
-          tone: 'professional',
-          totalFieldsCount: schema.fields.length,
-          filledFieldsCount: applyRes.appliedCount || schema.fields.length,
-          fields: fillRes.predictions.map((p: PredictedFieldValue, idx: number) => ({
-            fieldId: p.fieldId,
-            question: schema.fields[idx]?.label || p.fieldId,
-            answer: String(p.value),
-            confidence: p.confidence,
-            wasEditedByUser: false
-          }))
-        }
-      });
+      fillStatus.innerText = totalApplied > 0
+        ? `Filled ${totalApplied} fields across ${stepsFilled} step${stepsFilled === 1 ? '' : 's'}. Submit the form on the website to save it in history.`
+        : 'The form was read, but no answers could be written into its fields.';
     } catch (err: any) {
+      console.error('Fill form error:', err);
       fillStatus.innerText = `Error: ${err.message || 'Operation failed'}`;
     }
   });
 
-  // 4. Toggle Heatmap
+  // 7. Toggle Heatmap
   toggleHeatmap?.addEventListener('change', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
@@ -136,28 +330,94 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 5. Proceed to Next Step
+  // 8. Proceed to Next Step
   btnNextStep?.addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id) {
       await chrome.tabs.sendMessage(tab.id, { type: 'TRIGGER_NEXT_STEP' });
-      fillStatus!.innerText = 'Navigated to next step. Click Fill Form to continue!';
+      if (fillStatus) fillStatus.innerText = 'Navigated to next step. Click Fill Form to continue!';
     }
   });
 
-  // 6. Gap Upload Button
+  // 9. Gap Upload Button
   btnGapUpload?.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'http://localhost:3000' });
+    chrome.tabs.create({ url: 'http://localhost:3000/dashboard' });
   });
 
-  // Function to load and render documents
+  // 10. Quick Context Snippet Accordion & Adder
+  btnToggleSnippet?.addEventListener('click', () => {
+    if (!snippetBody) return;
+    const isHidden = snippetBody.classList.contains('hidden');
+    if (isHidden) {
+      snippetBody.classList.remove('hidden');
+      if (snippetExpandIndicator) snippetExpandIndicator.innerHTML = MINUS_ICON;
+    } else {
+      snippetBody.classList.add('hidden');
+      if (snippetExpandIndicator) snippetExpandIndicator.innerHTML = PLUS_ICON;
+    }
+  });
+
+  btnSaveSnippet?.addEventListener('click', async () => {
+    const text = inputSnippetText?.value.trim();
+    if (!text) return;
+
+    const newSnippetDoc: KBDocument = {
+      id: `snippet_${Date.now()}`,
+      name: `Note (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`,
+      originalFilename: 'quick_snippet.txt',
+      mimeType: 'text/plain',
+      sizeBytes: text.length * 2,
+      description: text,
+      isEnabled: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    currentDocuments.unshift(newSnippetDoc);
+    await chrome.storage.local.set({ cachedDocuments: currentDocuments });
+    renderDocuments();
+
+    if (inputSnippetText) inputSnippetText.value = '';
+    if (snippetSaveStatus) {
+      snippetSaveStatus.classList.remove('hidden');
+      setTimeout(() => {
+        snippetSaveStatus.classList.add('hidden');
+      }, 2000);
+    }
+  });
+
+  // Helper to load and render documents
   async function loadDocuments() {
     const { cachedDocuments } = await chrome.storage.local.get('cachedDocuments');
-    if (cachedDocuments && Array.isArray(cachedDocuments)) {
+    if (cachedDocuments && Array.isArray(cachedDocuments) && cachedDocuments.length > 0) {
       currentDocuments = cachedDocuments;
     } else {
-      currentDocuments = [];
-      await chrome.storage.local.set({ cachedDocuments: [] });
+      // Seed default sample documents if empty
+      currentDocuments = [
+        {
+          id: 'doc_resume',
+          name: 'Principal_FullStack_Resume.pdf',
+          originalFilename: 'Principal_FullStack_Resume.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 184000,
+          description: 'Comprehensive software engineering credentials, work history, education, GPA, and contact information.',
+          isEnabled: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        },
+        {
+          id: 'doc_tax_cert',
+          name: 'W9_Vendor_Tax_Profile.pdf',
+          originalFilename: 'W9_Vendor_Tax_Profile.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 96000,
+          description: 'Official tax identification, legal name, business address, and compliance classification.',
+          isEnabled: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+      ];
+      await chrome.storage.local.set({ cachedDocuments: currentDocuments });
     }
 
     renderDocuments();
@@ -174,8 +434,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (currentDocuments.length === 0) {
       docList.innerHTML = `
-        <div style="padding: 24px 12px; text-align: center; color: var(--text-muted); font-size: 12px; line-height: 1.5;">
-          No documents in Knowledge Base.<br>Upload documents in the web dashboard.
+        <div class="empty-state">
+          No documents in Knowledge Base.<br>Add a snippet above or upload docs in the dashboard.
         </div>
       `;
       return;
@@ -186,9 +446,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       row.className = 'doc-row';
 
       row.innerHTML = `
-        <div class="doc-info">
-          <span class="doc-name" title="${doc.name}">${doc.name}</span>
-          <span class="doc-desc" title="${doc.description}">${doc.description}</span>
+        <div class="doc-left">
+          <div class="doc-icon-wrap">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+            </svg>
+          </div>
+          <div class="doc-info">
+            <span class="doc-name" title="${doc.name}">${doc.name}</span>
+            <span class="doc-desc" title="${doc.description}">${doc.description}</span>
+          </div>
         </div>
         <label class="switch">
           <input type="checkbox" data-id="${doc.id}" ${doc.isEnabled ? 'checked' : ''}>
