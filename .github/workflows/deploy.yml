@@ -64,7 +64,6 @@ jobs:
             --parameter-overrides \
               "GeminiApiKey=${GEMINI_API_KEY}" \
               ImageTag=latest \
-              DesiredCount=2 \
               DbEngineVersion=16.15
 
       - name: Roll the web tasks onto the new image
