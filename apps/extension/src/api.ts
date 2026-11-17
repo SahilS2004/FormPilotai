@@ -1,4 +1,4 @@
-export const AWS_API_BASE = 'http://formpi-LoadB-kCejEGQvd1KF-1385320992.us-east-1.elb.amazonaws.com';
+export const AWS_API_BASE = 'https://formpilot.innovchromatic.tech';
 
 const STORAGE_KEY = 'formpilot_api_base';
 
