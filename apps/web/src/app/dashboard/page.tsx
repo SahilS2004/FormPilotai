@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { 
   FileStack, 
   CalendarClock, 
@@ -22,12 +21,10 @@ import {
   Clock,
   ArrowRight,
   Layers,
-  HelpCircle,
   Pencil,
-  Check,
   X,
   FileCheck2,
-  FolderOpen
+  ChevronRight
 } from 'lucide-react';
 import { 
   KBDocument, 
@@ -224,69 +221,23 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="flex-1 flex flex-col bg-[#F8FAFC] text-slate-900 min-h-screen">
-      {/* Top Header Navbar - Expanded Width */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
-        <div className="max-w-[1540px] mx-auto px-6 sm:px-10 lg:px-12 h-20 flex items-center justify-between">
-          {/* Logo Brand Lockup */}
-          <div className="flex items-center gap-3">
-            <div className="relative flex items-center">
-              {/* Official Logo Full Lockup */}
-              <Link href="/">
-                <img 
-                  src="/brand/logo-full.png" 
-                  alt="FormPilot AI" 
-                  className="h-11 w-auto object-contain cursor-pointer transition hover:opacity-95"
-                />
-              </Link>
-            </div>
-            <div className="hidden sm:flex items-center gap-1.5 ml-2 pl-3 border-l border-slate-200">
-              <span className="text-[11px] font-semibold text-navy-800 tracking-wide uppercase px-2 py-0.5 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700">
-                Context Engine
-              </span>
-            </div>
-          </div>
-
-          {/* Right Status Actions */}
-          <div className="flex items-center gap-3">
-            {/* Landing Page link */}
-            <Link
-              href="/"
-              className="btn-lightup-subtle text-xs text-slate-600 hover:text-navy-800 transition font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100"
-            >
-              ← Home
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col lg:flex-row">
+      {/* 1. Left-Stuck Sidebar */}
+      <aside className="w-full lg:w-72 bg-white border-r border-slate-200 lg:h-screen lg:sticky lg:top-0 flex flex-col justify-between shrink-0 z-30 shadow-2xs">
+        <div className="p-5 space-y-6">
+          {/* Logo Header at top of sidebar */}
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <Link href="/" className="block">
+              <img 
+                src="/brand/logo-full.png" 
+                alt="FormPilot AI" 
+                className="h-9 w-auto object-contain cursor-pointer transition hover:opacity-90"
+              />
             </Link>
-
-            {/* Active Scope Pill */}
-            <div className="flex items-center gap-2 text-xs bg-slate-50 px-3.5 py-1.5 rounded-full border border-slate-200 text-slate-700 font-medium">
-              <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
-              Active Scope: <strong className="text-navy-800">{activeDocsCount} of {docs.length}</strong> Docs
-            </div>
-
-            {/* Extension Indicator */}
-            <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-600 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-xs">
-              <ShieldCheck size={14} className="text-cyan-600" />
-              <span>Extension Connected</span>
-            </div>
-
-            {/* GitHub Portal */}
-            <a 
-              href="https://github.com/SahilS2004/FormPilotai" 
-              target="_blank" 
-              rel="noreferrer"
-              className="btn-lightup-subtle text-xs text-slate-600 hover:text-navy-800 transition font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100"
-            >
-              GitHub <ExternalLink size={12} className="text-slate-400" />
-            </a>
           </div>
-        </div>
-      </header>
 
-      {/* Main Container Layout - Expanded Width */}
-      <div className="max-w-[1540px] mx-auto px-6 sm:px-10 lg:px-12 py-8 flex-1 w-full flex flex-col lg:flex-row gap-8">
-        {/* Clean Sidebar Navigation */}
-        <aside className="w-full lg:w-64 shrink-0">
-          <nav className="bg-white border border-slate-200 rounded-2xl p-2.5 shadow-sm space-y-1">
+          {/* Navigation Links */}
+          <nav className="space-y-1.5">
             <button
               onClick={() => setActiveTab('kb')}
               className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left ${
@@ -377,21 +328,56 @@ export default function DashboardPage() {
               </div>
             </button>
           </nav>
+        </div>
 
-          {/* Quick Help Card */}
-          <div className="mt-4 bg-white border border-slate-200 rounded-2xl p-4 text-xs text-slate-600 shadow-xs space-y-2.5">
-            <div className="flex items-center gap-2 text-navy-800 font-semibold">
-              <Sparkles size={15} className="text-cyan-600" />
-              <span>How It Works</span>
-            </div>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              FormPilot matches active documents in your Knowledge Base to any webpage form, providing <strong>grounded answers</strong> and <strong>high-confidence fills</strong> with zero hallucinations.
-            </p>
+        {/* Bottom of Sidebar */}
+        <div className="p-5 border-t border-slate-100 space-y-3 bg-slate-50/50">
+          <div className="flex items-center justify-between text-xs text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+            <span className="font-medium">Active KB Scope</span>
+            <span className="font-bold text-navy-800 bg-cyan-50 text-cyan-800 px-2 py-0.5 rounded-full border border-cyan-200 text-[10px]">
+              {activeDocsCount} of {docs.length} Docs
+            </span>
           </div>
-        </aside>
 
-        {/* Dynamic Main Workspace */}
-        <main className="flex-1 space-y-6">
+          <div className="flex items-center gap-2 text-[11px] text-slate-500 font-medium px-1">
+            <ShieldCheck size={14} className="text-cyan-600" />
+            <span>Extension Ready</span>
+          </div>
+
+          <Link
+            href="/"
+            className="btn-lightup-subtle w-full flex items-center justify-center gap-1.5 text-xs text-slate-600 hover:text-navy-800 font-semibold p-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 transition shadow-2xs"
+          >
+            ← Back to Home
+          </Link>
+        </div>
+      </aside>
+
+      {/* 2. Main Workspace Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Navbar Header */}
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-20 px-8 py-4.5 flex items-center justify-between shadow-2xs">
+          <div>
+            <h1 className="text-sm font-bold text-navy-800">
+              {activeTab === 'kb' && 'Document Knowledge Base'}
+              {activeTab === 'reminders' && 'Form Reminders & Auto-Action'}
+              {activeTab === 'bulk' && 'Bulk Multi-Site Runner'}
+              {activeTab === 'history' && 'Form Fill History & Audit'}
+              {activeTab === 'settings' && 'Persona & System Directives'}
+            </h1>
+            <span className="text-[11px] text-slate-500">Autonomous Form Completion Engine</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 text-xs bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200 text-slate-600 font-medium">
+              <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
+              <span>Grounded Retrieval Engine</span>
+            </div>
+          </div>
+        </header>
+
+        {/* Dynamic Workspace Container */}
+        <main className="p-6 sm:p-8 lg:p-10 max-w-6xl w-full mx-auto space-y-6">
           {/* TAB 1: KNOWLEDGE BASE */}
           {activeTab === 'kb' && (
             <div className="space-y-6">
@@ -562,7 +548,7 @@ export default function DashboardPage() {
                     </span>
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    Track deadline-driven forms. If you haven't reviewed before the deadline, our autonomous agent will auto-fill or auto-submit!
+                    Track deadline-driven forms. If you haven&apos;t reviewed before the deadline, our autonomous agent will auto-fill or auto-submit!
                   </p>
                 </div>
                 <button
@@ -906,7 +892,7 @@ export default function DashboardPage() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2 rounded-xl"
+                  className="btn-lightup bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2 rounded-xl"
                 >
                   Add Document
                 </button>
@@ -984,7 +970,7 @@ export default function DashboardPage() {
                 </button>
                 <button
                   type="submit"
-                  className="bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2 rounded-xl"
+                  className="btn-lightup bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2 rounded-xl"
                 >
                   Create Reminder
                 </button>

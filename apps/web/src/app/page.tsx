@@ -48,14 +48,6 @@ export default function LandingPage() {
             <a href="#how-it-works" className="hover:text-navy-800 transition">How It Works</a>
             <a href="#security" className="hover:text-navy-800 transition">Security & Privacy</a>
             <a href="#extension" className="hover:text-navy-800 transition">Chrome Extension</a>
-            <a 
-              href="https://github.com/SahilS2004/FormPilotai" 
-              target="_blank" 
-              rel="noreferrer"
-              className="hover:text-navy-800 transition flex items-center gap-1.5 text-slate-500 font-medium"
-            >
-              GitHub <ExternalLink size={12} className="text-slate-400" />
-            </a>
           </nav>
 
           {/* Auth Action Buttons with Click Lightup Effect */}
@@ -505,14 +497,6 @@ export default function LandingPage() {
           <div className="flex items-center gap-4 text-xs font-semibold text-slate-500">
             <Link href="/login" className="hover:text-navy-800 transition">Sign In</Link>
             <Link href="/dashboard" className="hover:text-navy-800 transition">Workspace</Link>
-            <a 
-              href="https://github.com/SahilS2004/FormPilotai" 
-              target="_blank" 
-              rel="noreferrer"
-              className="hover:text-navy-800 transition"
-            >
-              GitHub
-            </a>
           </div>
         </div>
       </footer>
