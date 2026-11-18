@@ -1,0 +1,21 @@
+{
+  "name": "formpilotai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Context-Aware AI Form Filler & Document Reasoning Copilot",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "sahils2004",
+  "license": "MIT"
+}
