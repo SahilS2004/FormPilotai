@@ -3,7 +3,8 @@ import {
   SyntheticEventDispatcher, 
   ConfidenceHeatmapRenderer 
 } from '@formpilot/dom-analyzer';
-import { PredictedFieldValue, FormSchema } from '@formpilot/shared';
+import { DocumentRecommendation, PredictedFieldValue, FormSchema } from '@formpilot/shared';
+import { runDocumentBuilder } from './document-overlay';
 import { mountFloatingButton } from './fab';
 
 /**
@@ -110,10 +111,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       const predictions: PredictedFieldValue[] = message.payload?.predictions || [];
       const showHeatmap: boolean = message.payload?.showHeatmap ?? true;
+      const skipFileFields: boolean = Boolean(message.payload?.skipFileFields);
 
       let appliedCount = 0;
       predictions.forEach((pred) => {
         if (pred.value === '' || pred.value == null) return;
+        if (skipFileFields && pred.filePayload) return;
         const el = findPredictionElement(pred);
         if (el && el instanceof HTMLElement) {
           const success = SyntheticEventDispatcher.setInputValue(el, pred.value, pred.filePayload);
@@ -136,6 +139,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: false, error: err?.message || 'Failed to apply predictions' });
     }
     return false;
+  }
+
+  // 5b. Generate missing upload documents (cover letter, statement, …)
+  if (message.type === 'RUN_DOCUMENT_BUILDER') {
+    (async () => {
+      try {
+        const gaps: DocumentRecommendation[] = message.payload?.gaps || [];
+        const schema: FormSchema = message.payload?.schema || lastFilledSchema;
+        const predictions: PredictedFieldValue[] = message.payload?.predictions || [];
+        const tone = message.payload?.tone || 'professional';
+        if (!schema) {
+          sendResponse({ success: false, error: 'No form schema available for document builder' });
+          return;
+        }
+        const result = await runDocumentBuilder({ gaps, schema, predictions, tone });
+        if (result.predictions.length > 0) {
+          let appliedCount = 0;
+          for (const pred of result.predictions) {
+            const el = findPredictionElement(pred);
+            if (el && el instanceof HTMLElement) {
+              if (SyntheticEventDispatcher.setInputValue(el, pred.value, pred.filePayload)) appliedCount += 1;
+            }
+          }
+          if (appliedCount > 0) pageWasFilled = true;
+          if (lastFilledSchema) rememberCurrentAnswers(lastFilledSchema);
+        }
+        sendResponse({ success: true, ...result });
+      } catch (err: any) {
+        console.error('[FormPilot] Document builder failed:', err);
+        sendResponse({ success: false, error: err?.message || 'Document builder failed' });
+      }
+    })();
+    return true;
   }
 
   // 6. Toggle Heatmap Overlays

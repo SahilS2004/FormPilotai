@@ -28,6 +28,11 @@ if [[ -z "${GEMINI_API_KEY:-}" ]]; then
   exit 1
 fi
 
+if [[ -z "${TAVILY_API_KEY:-}" ]]; then
+  echo "TAVILY_API_KEY is empty in $ENV_FILE." >&2
+  exit 1
+fi
+
 ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
 echo "Deploying $STACK in $REGION as account $ACCOUNT"
 
@@ -37,7 +42,7 @@ deploy_stack() {
     --stack-name "$STACK" \
     --template-file "$ROOT/infra/cloudformation.yml" \
     --capabilities CAPABILITY_IAM \
-    --parameter-overrides "GeminiApiKey=$GEMINI_API_KEY" "ImageTag=latest" "DesiredCount=$1" "DbEngineVersion=16.15"
+    --parameter-overrides "GeminiApiKey=$GEMINI_API_KEY" "TavilyApiKey=$TAVILY_API_KEY" "ImageTag=latest" "DesiredCount=$1" "DbEngineVersion=16.15"
 }
 
 echo "Creating the network, database, and registry before any task starts"

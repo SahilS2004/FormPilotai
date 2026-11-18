@@ -6,6 +6,11 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Google Gemini API key. Stored in Secrets Manager, not in the image.
+  TavilyApiKey:
+    Type: String
+    NoEcho: true
+    Default: ''
+    Description: Tavily search API key for the document builder agent.
   ImageTag:
     Type: String
     Default: latest
@@ -232,6 +237,12 @@ Resources:
       Name: !Sub '${AWS::StackName}/gemini-api-key'
       SecretString: !Ref GeminiApiKey
 
+  TavilySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${AWS::StackName}/tavily-api-key'
+      SecretString: !Ref TavilyApiKey
+
   DbSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
@@ -301,6 +312,7 @@ Resources:
                 Action: secretsmanager:GetSecretValue
                 Resource:
                   - !Ref GeminiSecret
+                  - !Ref TavilySecret
                   - !GetAtt Database.MasterUserSecret.SecretArn
 
   TaskRole:
@@ -377,6 +389,8 @@ Resources:
           Secrets:
             - Name: GEMINI_API_KEY
               ValueFrom: !Ref GeminiSecret
+            - Name: TAVILY_API_KEY
+              ValueFrom: !Ref TavilySecret
             - Name: DB_USER
               ValueFrom: !Sub
                 - '${SecretArn}:username::'

@@ -168,6 +168,37 @@ export interface MicroPromptCommand {
 // 6. Dynamic Document Generator
 // ==========================================
 
+export type DocumentJobDocType = 'cover_letter' | 'statement' | 'other';
+
+export type DocumentJobStatus =
+  | 'queued'
+  | 'generating'
+  | 'ready'
+  | 'failed'
+  | 'accepted'
+  | 'rejected';
+
+export interface DocumentJob {
+  id: string;
+  status: DocumentJobStatus;
+  docType: DocumentJobDocType;
+  title: string;
+  company: string;
+  role: string;
+  formHeading: string;
+  formUrl: string;
+  tone: PersonaTone;
+  fieldId?: string;
+  draftText?: string;
+  draftFilename?: string;
+  draftMime?: string;
+  draftBase64?: string;
+  documentId?: string;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface GeneratedDocument {
   id: string;
   filename: string;
@@ -298,6 +329,10 @@ export interface DocumentRecommendation {
   description: string;
   reason: string;
   targetedFields: string[];
+  canGenerate?: boolean;
+  docType?: DocumentJobDocType;
+  suggestedTitle?: string;
+  fieldId?: string;
 }
 
 // ==========================================

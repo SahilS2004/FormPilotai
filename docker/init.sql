@@ -131,7 +131,29 @@ CREATE TABLE IF NOT EXISTS system_settings (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 8. Onboarding Checklist Progress
+-- 8. Async document builder jobs (cover letters, statements)
+CREATE TABLE IF NOT EXISTS document_jobs (
+    id VARCHAR(64) PRIMARY KEY,
+    status VARCHAR(32) NOT NULL DEFAULT 'queued',
+    doc_type VARCHAR(32) NOT NULL DEFAULT 'cover_letter',
+    title VARCHAR(255) NOT NULL,
+    company VARCHAR(255) DEFAULT '',
+    role VARCHAR(255) DEFAULT '',
+    form_heading TEXT DEFAULT '',
+    form_url TEXT DEFAULT '',
+    tone VARCHAR(64) DEFAULT 'professional',
+    field_id VARCHAR(128),
+    draft_text TEXT,
+    draft_filename VARCHAR(255),
+    draft_mime VARCHAR(128),
+    draft_base64 TEXT,
+    document_id VARCHAR(64),
+    error TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 9. Onboarding Checklist Progress
 CREATE TABLE IF NOT EXISTS onboarding_progress (
     id VARCHAR(64) PRIMARY KEY DEFAULT 'default_user',
     completed_steps TEXT[] DEFAULT '{}',

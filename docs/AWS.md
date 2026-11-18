@@ -63,5 +63,6 @@ The repository needs these GitHub Actions secrets:
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 - `GEMINI_API_KEY`
+- `TAVILY_API_KEY`
 
 They belong to the same deploy user and Gemini key used for the first setup. The workflow does not print them.

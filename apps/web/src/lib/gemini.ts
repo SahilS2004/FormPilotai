@@ -231,6 +231,11 @@ export async function reasonAboutForm(input: Parameters<typeof buildFormPrompt>[
   return parseAnswers(text);
 }
 
+/** Shared Gemini JSON text call used by form fill and the document agent. */
+export async function runtimeGenerate(system: string, prompt: string): Promise<string> {
+  return generateText(system, prompt);
+}
+
 async function generateText(system: string, prompt: string): Promise<string> {
   const now = Date.now();
   const order = MODEL_CHAIN.filter((model) => (coolingUntil.get(model) || 0) <= now);

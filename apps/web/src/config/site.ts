@@ -15,6 +15,7 @@ export const SITE_CONFIG = {
     documents: '/api/documents',
     reminders: '/api/reminders',
     bulkJobs: '/api/bulk-jobs',
+    documentJobs: '/api/document-jobs',
     history: '/api/history',
     onboarding: '/api/onboarding'
   },

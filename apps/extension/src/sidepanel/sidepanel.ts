@@ -275,18 +275,48 @@ document.addEventListener('DOMContentLoaded', async () => {
           };
         });
 
+        const generatableGaps: DocumentRecommendation[] = (fillRes.gapRecommendations || [])
+          .filter((gap: DocumentRecommendation) => gap.canGenerate);
+        const otherGaps: DocumentRecommendation[] = (fillRes.gapRecommendations || [])
+          .filter((gap: DocumentRecommendation) => !gap.canGenerate);
+
         const applyRes = await chrome.tabs.sendMessage(tab.id, {
           type: 'APPLY_PREDICTIONS',
-          payload: { predictions, showHeatmap: toggleHeatmap?.checked ?? false }
+          payload: {
+            predictions,
+            showHeatmap: toggleHeatmap?.checked ?? false,
+            skipFileFields: generatableGaps.length > 0,
+          }
         });
         totalApplied += applyRes?.appliedCount || 0;
         stepsFilled += 1;
 
-        if (fillRes.gapRecommendations && fillRes.gapRecommendations.length > 0 && gapAlertCard) {
-          const topGap: DocumentRecommendation = fillRes.gapRecommendations[0];
+        if (generatableGaps.length > 0) {
+          fillStatus.innerText = `Answers filled. Generating ${generatableGaps[0].missingDocumentName || 'document'}…`;
+          const built = await chrome.tabs.sendMessage(tab.id, {
+            type: 'RUN_DOCUMENT_BUILDER',
+            payload: {
+              gaps: generatableGaps,
+              schema,
+              predictions,
+              tone: activeTone,
+            },
+          });
+          if (built?.accepted) totalApplied += built.accepted;
+          if (built?.failed) {
+            fillStatus.innerText = `Document generation failed for ${built.failed} file${built.failed === 1 ? '' : 's'}.`;
+          } else if (built?.rejected && !built?.accepted) {
+            fillStatus.innerText = 'Generated document was rejected.';
+          }
+        }
+
+        if (otherGaps.length > 0 && gapAlertCard) {
+          const topGap = otherGaps[0];
           const gapReason = document.getElementById('gap-reason');
           if (gapReason) gapReason.innerText = `Missing: ${topGap.missingDocumentName}. ${topGap.reason}`;
           gapAlertCard.classList.remove('hidden');
+        } else if (gapAlertCard) {
+          gapAlertCard.classList.add('hidden');
         }
 
         const hasNext = Boolean(schema.stepInfo?.nextButtonSelector) && schema.stepInfo?.isFinalStep !== true;

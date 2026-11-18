@@ -4,7 +4,7 @@ import { reindexPendingDocuments, repairOversizedChunks, searchKeywordChunks, se
 import { extractDocumentLinks } from '@/lib/document-formatter';
 import { pastFormAnswers } from '@/lib/history-index';
 import { embedTexts, reasonAboutForm, FormFact, GeminiFieldAnswer } from '@/lib/gemini';
-import { FormSchema, FormField, PredictedFieldValue, KBDocument, VectorDocumentChunk, PersonaTone } from '@formpilot/shared';
+import { FormSchema, FormField, PredictedFieldValue, KBDocument, VectorDocumentChunk, PersonaTone, DocumentRecommendation } from '@formpilot/shared';
 import { ONBOARDING_DOC_ID } from '@/lib/onboarding-profile';
 
 export async function POST(req: Request) {
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     await repairOversizedChunks();
 
     const predictions: PredictedFieldValue[] = [];
-    const missingDocs: Array<{ missingDocumentName: string; reason: string }> = [];
+    const missingDocs: DocumentRecommendation[] = [];
     const docIds = eligibleDocs.map((doc) => doc.id).filter((id) => id !== ONBOARDING_DOC_ID);
     const units: Array<{ unit: FieldUnit; kind: FieldKind }> = [];
 
@@ -83,9 +83,18 @@ export async function POST(req: Request) {
             }
           });
         } else {
+          const generate = generatableUpload(field);
           missingDocs.push({
-            missingDocumentName: field.label || 'Document',
-            reason: `Field "${field.label}" needs a file from the knowledge base.`
+            missingDocumentName: field.label || generate.suggestedTitle,
+            description: generate.suggestedTitle,
+            reason: generate.canGenerate
+              ? `FormPilot can draft a ${generate.suggestedTitle.toLowerCase()} for this upload.`
+              : `Field "${field.label}" needs a file from the knowledge base.`,
+            targetedFields: [field.id],
+            canGenerate: generate.canGenerate,
+            docType: generate.docType,
+            suggestedTitle: generate.suggestedTitle,
+            fieldId: field.id,
           });
 
           predictions.push({
@@ -96,7 +105,9 @@ export async function POST(req: Request) {
             confidence: 0.2,
             confidenceLevel: 'low',
             rationale: 'No matching document is in the knowledge base.',
-            missingDocHint: 'Upload your document in Knowledge Base to attach automatically'
+            missingDocHint: generate.canGenerate
+              ? 'FormPilot can generate this document for review.'
+              : 'Upload your document in Knowledge Base to attach automatically'
           });
         }
         continue;
@@ -567,6 +578,24 @@ async function loadDocumentLinks(docs: KBDocument[]): Promise<DocumentLink[]> {
     seen.add(link.url);
     return true;
   });
+}
+
+function generatableUpload(field: FormField): {
+  canGenerate: boolean;
+  docType: 'cover_letter' | 'statement' | 'other';
+  suggestedTitle: string;
+} {
+  const label = `${field.label || ''} ${field.name || ''} ${field.placeholder || ''}`.toLowerCase();
+  if (/cover\s*letter|motivation\s*letter|letter\s*of\s*interest/.test(label)) {
+    return { canGenerate: true, docType: 'cover_letter', suggestedTitle: 'Cover Letter' };
+  }
+  if (/statement\s*of\s*purpose|\bsop\b|personal\s*statement|why\s*us|interest\s*statement/.test(label)) {
+    return { canGenerate: true, docType: 'statement', suggestedTitle: 'Personal Statement' };
+  }
+  if (/upload|attach|document|file/.test(label) && /letter|statement|essay|write.?up/.test(label)) {
+    return { canGenerate: true, docType: 'other', suggestedTitle: field.label || 'Application Document' };
+  }
+  return { canGenerate: false, docType: 'other', suggestedTitle: field.label || 'Document' };
 }
 
 async function chooseUploadDocument(field: FormField, schema: FormSchema, docs: KBDocument[]): Promise<KBDocument | undefined> {
