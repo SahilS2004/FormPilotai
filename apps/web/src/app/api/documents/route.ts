@@ -11,7 +11,7 @@ import {
 import { storeDocumentVectors } from '@/lib/vector';
 import { documentsStore, documentContentsStore } from '@/lib/store';
 import { buildObjectKey, deleteKbObject, putKbObject } from '@/lib/object-store';
-import { extractDocumentText } from '@/lib/extract-text';
+import { composeIndexText, extractDocumentText } from '@/lib/extract-text';
 import { KBDocument } from '@formpilot/shared';
 
 export const runtime = 'nodejs';
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
       bytes: upload.bytes,
       description: upload.description,
     });
-    const indexText = [upload.description, extracted.text].filter((part) => part && part.trim()).join('\n\n').trim();
+    const indexText = composeIndexText(upload.description, extracted.text);
     if (!indexText) {
       return NextResponse.json({ error: 'Nothing to index. Add a description or a text-based file.' }, { status: 400 });
     }
