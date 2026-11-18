@@ -30,20 +30,20 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col selection:bg-cyan-100 selection:text-cyan-900">
-      {/* 1. Header Navigation Bar */}
-      <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-18 flex items-center justify-between">
+      {/* 1. Header Navigation Bar - Expanded Width with Lightup CTAs */}
+      <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 transition-all">
+        <div className="max-w-[1540px] mx-auto px-6 sm:px-10 lg:px-12 h-20 flex items-center justify-between">
           {/* Logo Brand */}
           <Link href="/" className="flex items-center gap-3">
             <img 
               src="/brand/logo-full.png" 
               alt="FormPilot AI" 
-              className="h-10 w-auto object-contain cursor-pointer"
+              className="h-11 w-auto object-contain cursor-pointer transition hover:opacity-95"
             />
           </Link>
 
           {/* Desktop Nav Links */}
-          <nav className="hidden md:flex items-center gap-7 text-xs font-semibold text-slate-600">
+          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-slate-600">
             <a href="#features" className="hover:text-navy-800 transition">Features</a>
             <a href="#how-it-works" className="hover:text-navy-800 transition">How It Works</a>
             <a href="#security" className="hover:text-navy-800 transition">Security & Privacy</a>
@@ -52,23 +52,23 @@ export default function LandingPage() {
               href="https://github.com/SahilS2004/FormPilotai" 
               target="_blank" 
               rel="noreferrer"
-              className="hover:text-navy-800 transition flex items-center gap-1 text-slate-500"
+              className="hover:text-navy-800 transition flex items-center gap-1.5 text-slate-500 font-medium"
             >
-              GitHub <ExternalLink size={12} />
+              GitHub <ExternalLink size={12} className="text-slate-400" />
             </a>
           </nav>
 
-          {/* Auth Action Buttons */}
-          <div className="flex items-center gap-3">
+          {/* Auth Action Buttons with Click Lightup Effect */}
+          <div className="flex items-center gap-3.5">
             <Link
               href="/login"
-              className="text-xs font-bold text-navy-800 hover:text-cyan-700 px-3.5 py-2 rounded-xl transition"
+              className="btn-lightup-subtle text-xs font-bold text-navy-800 hover:text-cyan-800 px-4 py-2.5 rounded-xl border border-transparent hover:border-slate-200 transition"
             >
               Sign In
             </Link>
             <Link
               href="/login"
-              className="bg-navy-800 hover:bg-navy-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition hover:shadow flex items-center gap-2"
+              className="btn-lightup bg-navy-800 hover:bg-navy-900 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-sm hover:shadow flex items-center gap-2 border border-transparent"
             >
               <span>Get Started Free</span>
               <ArrowRight size={14} className="text-cyan-400" />
@@ -102,11 +102,11 @@ export default function LandingPage() {
             FormPilot AI analyzes job applications, grant proposals, and government portals on the fly. Grounded strictly in your verified Knowledge Base—zero hallucinations, visual confidence heatmaps, and autonomous deadline execution.
           </p>
 
-          {/* CTAs */}
+          {/* CTAs with Lightup Effect */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
             <Link
               href="/login"
-              className="w-full sm:w-auto bg-navy-800 hover:bg-navy-900 text-white text-sm font-bold px-7 py-3.5 rounded-xl shadow-md transition hover:shadow-lg flex items-center justify-center gap-2.5"
+              className="btn-lightup w-full sm:w-auto bg-navy-800 hover:bg-navy-900 text-white text-sm font-bold px-7 py-3.5 rounded-xl shadow-md hover:shadow-lg flex items-center justify-center gap-2.5"
             >
               <span>Launch Web Workspace</span>
               <ArrowRight size={16} className="text-cyan-400" />
@@ -114,7 +114,7 @@ export default function LandingPage() {
 
             <Link
               href="/dashboard"
-              className="w-full sm:w-auto bg-white hover:bg-slate-50 text-navy-800 border border-slate-300 text-sm font-bold px-7 py-3.5 rounded-xl shadow-2xs transition hover:shadow-xs flex items-center justify-center gap-2"
+              className="btn-lightup-subtle w-full sm:w-auto bg-white hover:bg-slate-50 text-navy-800 border border-slate-300 text-sm font-bold px-7 py-3.5 rounded-xl shadow-2xs hover:shadow-xs flex items-center justify-center gap-2"
             >
               <Cpu size={16} className="text-cyan-600" />
               <span>Explore Interactive Demo</span>
@@ -484,7 +484,7 @@ export default function LandingPage() {
           <div className="pt-2 flex items-center justify-center gap-3">
             <Link
               href="/login"
-              className="bg-navy-800 hover:bg-navy-900 text-white text-sm font-bold px-8 py-3.5 rounded-xl shadow-md transition hover:shadow-lg flex items-center gap-2"
+              className="btn-lightup bg-navy-800 hover:bg-navy-900 text-white text-sm font-bold px-8 py-3.5 rounded-xl shadow-md hover:shadow-lg flex items-center gap-2"
             >
               <span>Get Started Free</span>
               <ArrowRight size={16} className="text-cyan-400" />
@@ -493,9 +493,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 8. Footer */}
+      {/* 8. Footer - Expanded Width */}
       <footer className="bg-white border-t border-slate-200 py-10">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="max-w-[1540px] mx-auto px-6 sm:px-10 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <img src="/brand/logo-full.png" alt="FormPilot AI" className="h-8 w-auto object-contain" />
           </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { 
   FileStack, 
@@ -224,18 +225,20 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 flex flex-col bg-[#F8FAFC] text-slate-900 min-h-screen">
-      {/* Top Header Navbar */}
+      {/* Top Header Navbar - Expanded Width */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
-        <div className="max-w-7xl mx-auto px-6 h-18 flex items-center justify-between">
+        <div className="max-w-[1540px] mx-auto px-6 sm:px-10 lg:px-12 h-20 flex items-center justify-between">
           {/* Logo Brand Lockup */}
           <div className="flex items-center gap-3">
             <div className="relative flex items-center">
               {/* Official Logo Full Lockup */}
-              <img 
-                src="/brand/logo-full.png" 
-                alt="FormPilot AI" 
-                className="h-10 w-auto object-contain"
-              />
+              <Link href="/">
+                <img 
+                  src="/brand/logo-full.png" 
+                  alt="FormPilot AI" 
+                  className="h-11 w-auto object-contain cursor-pointer transition hover:opacity-95"
+                />
+              </Link>
             </div>
             <div className="hidden sm:flex items-center gap-1.5 ml-2 pl-3 border-l border-slate-200">
               <span className="text-[11px] font-semibold text-navy-800 tracking-wide uppercase px-2 py-0.5 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700">
@@ -247,12 +250,12 @@ export default function DashboardPage() {
           {/* Right Status Actions */}
           <div className="flex items-center gap-3">
             {/* Landing Page link */}
-            <a
+            <Link
               href="/"
-              className="text-xs text-slate-600 hover:text-navy-800 transition font-medium px-2.5 py-1.5 rounded-lg hover:bg-slate-100"
+              className="btn-lightup-subtle text-xs text-slate-600 hover:text-navy-800 transition font-medium px-3 py-1.5 rounded-lg hover:bg-slate-100"
             >
               ← Home
-            </a>
+            </Link>
 
             {/* Active Scope Pill */}
             <div className="flex items-center gap-2 text-xs bg-slate-50 px-3.5 py-1.5 rounded-full border border-slate-200 text-slate-700 font-medium">
@@ -271,7 +274,7 @@ export default function DashboardPage() {
               href="https://github.com/SahilS2004/FormPilotai" 
               target="_blank" 
               rel="noreferrer"
-              className="text-xs text-slate-600 hover:text-navy-800 transition font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100"
+              className="btn-lightup-subtle text-xs text-slate-600 hover:text-navy-800 transition font-medium flex items-center gap-1.5 px-3 py-1.5 rounded-lg hover:bg-slate-100"
             >
               GitHub <ExternalLink size={12} className="text-slate-400" />
             </a>
@@ -279,8 +282,8 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Main Container Layout */}
-      <div className="max-w-7xl mx-auto px-6 py-8 flex-1 w-full flex flex-col lg:flex-row gap-8">
+      {/* Main Container Layout - Expanded Width */}
+      <div className="max-w-[1540px] mx-auto px-6 sm:px-10 lg:px-12 py-8 flex-1 w-full flex flex-col lg:flex-row gap-8">
         {/* Clean Sidebar Navigation */}
         <aside className="w-full lg:w-64 shrink-0">
           <nav className="bg-white border border-slate-200 rounded-2xl p-2.5 shadow-sm space-y-1">
@@ -402,7 +405,7 @@ export default function DashboardPage() {
                 </div>
                 <button
                   onClick={() => setShowAddDocModal(true)}
-                  className="bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition hover:shadow"
+                  className="btn-lightup bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition hover:shadow"
                 >
                   <Plus size={16} className="text-cyan-400" />
                   <span>Upload Document</span>
@@ -564,7 +567,7 @@ export default function DashboardPage() {
                 </div>
                 <button
                   onClick={() => setShowAddReminderModal(true)}
-                  className="bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition hover:shadow"
+                  className="btn-lightup bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition hover:shadow"
                 >
                   <Plus size={16} className="text-cyan-400" />
                   <span>Add Reminder</span>
@@ -674,7 +677,7 @@ export default function DashboardPage() {
                   <button
                     onClick={handleStartBulkJob}
                     disabled={isBulkRunning || !bulkUrlsText.trim()}
-                    className="bg-navy-800 hover:bg-navy-900 disabled:opacity-50 text-white text-xs font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition hover:shadow"
+                    className="btn-lightup bg-navy-800 hover:bg-navy-900 disabled:opacity-50 text-white text-xs font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition hover:shadow"
                   >
                     <Send size={15} className="text-cyan-400" />
                     <span>{isBulkRunning ? 'Agents Running...' : 'Launch Fleet Runner'}</span>
@@ -847,7 +850,7 @@ export default function DashboardPage() {
                 <div className="pt-2">
                   <button
                     onClick={handleSaveSettings}
-                    className="bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-sm transition hover:shadow"
+                    className="btn-lightup bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-sm transition hover:shadow"
                   >
                     Save Persona & Prompt Directives
                   </button>
