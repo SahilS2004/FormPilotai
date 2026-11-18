@@ -3,7 +3,7 @@
 # =========================================================================
 
 # Stage 1: Base Environment
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 WORKDIR /app
 RUN apk add --no-cache libc6-compat
 RUN corepack enable && corepack prepare pnpm@10.27.0 --activate
@@ -40,7 +40,7 @@ RUN pnpm --filter @formpilot/context-engine build
 RUN pnpm --filter @formpilot/web build
 
 # Stage 4: Production Runner
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
