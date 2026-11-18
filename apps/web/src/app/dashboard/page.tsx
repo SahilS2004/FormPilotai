@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { 
   FileStack, 
@@ -44,6 +44,11 @@ import {
 } from '@/lib/store';
 
 export default function DashboardPage() {
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const [activeTab, setActiveTab] = useState<'kb' | 'reminders' | 'bulk' | 'history' | 'settings'>('kb');
   
   // State for KB documents
@@ -624,8 +629,11 @@ export default function DashboardPage() {
 
                       <div className="text-right">
                         <span className="text-[11px] text-slate-500 block">Target Deadline</span>
-                        <strong className="text-xs text-navy-800 font-semibold">
-                          {new Date(rem.deadlineTimestamp).toLocaleDateString()} at {new Date(rem.deadlineTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        <strong suppressHydrationWarning className="text-xs text-navy-800 font-semibold">
+                          {isMounted 
+                            ? `${new Date(rem.deadlineTimestamp).toLocaleDateString()} at ${new Date(rem.deadlineTimestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                            : 'Scheduled Deadline'
+                          }
                         </strong>
                       </div>
                     </div>
@@ -771,8 +779,8 @@ export default function DashboardPage() {
                           <h4 className="font-bold text-sm text-navy-800">{record.formTitle}</h4>
                           <span className="text-xs text-slate-500">({record.domain})</span>
                         </div>
-                        <p className="text-xs text-slate-500">
-                          Submitted on {new Date(record.submittedAt).toLocaleDateString()} • Tone: <strong className="capitalize text-navy-800">{record.tone}</strong>
+                        <p suppressHydrationWarning className="text-xs text-slate-500">
+                          Submitted on {isMounted ? new Date(record.submittedAt).toLocaleDateString() : 'Recently'} • Tone: <strong className="capitalize text-navy-800">{record.tone}</strong>
                         </p>
                       </div>
 
