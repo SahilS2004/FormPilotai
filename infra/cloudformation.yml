@@ -367,9 +367,9 @@ Resources:
             - Name: DB_SSL
               Value: 'true'
             - Name: GEMINI_MODEL
-              Value: gemini-3.5-flash
+              Value: gemini-3-flash-preview
             - Name: GEMINI_FALLBACK_MODEL
-              Value: gemini-3.6-flash
+              Value: gemini-3.5-flash
             - Name: GEMINI_EMBEDDING_MODEL
               Value: gemini-embedding-2
             - Name: EMBEDDING_DIM

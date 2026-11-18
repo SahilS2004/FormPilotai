@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { fetchAllDocuments, fetchDocumentFilePayload } from '@/lib/db';
 import { reindexPendingDocuments, repairOversizedChunks, searchKeywordChunks, searchVectorChunks } from '@/lib/vector';
-import { extractPdfLinks } from '@/lib/extract-text';
-import { ensureSubmittedFormsIndexed, submittedFormDocIds } from '@/lib/history-index';
-import { reasonAboutForm, GeminiFieldAnswer } from '@/lib/gemini';
+import { extractDocumentLinks } from '@/lib/document-formatter';
+import { pastFormAnswers } from '@/lib/history-index';
+import { embedTexts, reasonAboutForm, FormFact, GeminiFieldAnswer } from '@/lib/gemini';
 import { FormSchema, FormField, PredictedFieldValue, KBDocument, VectorDocumentChunk, PersonaTone } from '@formpilot/shared';
 import { ONBOARDING_DOC_ID } from '@/lib/onboarding-profile';
 
@@ -16,9 +16,9 @@ export async function POST(req: Request) {
     }
 
     const fieldOverrides: Record<string, string> = body.fieldOverrides || {};
+    const tone: PersonaTone = body.tone || 'professional';
 
-    // 1. Fetch active documents from PostgreSQL
-    const allDocs = await fetchAllDocuments();
+    const allDocs = (await fetchAllDocuments()).filter((doc) => doc.sourceType !== 'history');
     const activeDocIds: string[] | undefined = body.activeDocIds;
     let eligibleDocs = allDocs.filter((d) => {
       if (activeDocIds && activeDocIds.length > 0) {
@@ -32,14 +32,11 @@ export async function POST(req: Request) {
 
     await reindexPendingDocuments();
     await repairOversizedChunks();
-    await ensureSubmittedFormsIndexed();
 
     const predictions: PredictedFieldValue[] = [];
     const missingDocs: Array<{ missingDocumentName: string; reason: string }> = [];
-    const docIds = eligibleDocs.map((doc) => doc.id);
-    const documentLinks = await loadDocumentLinks(eligibleDocs);
-    const formContext = [schema.title, schema.url].filter(Boolean).join('\n').slice(0, 700);
-    const pending: Array<{ unit: FieldUnit; kind: FieldKind; retrieved: VectorDocumentChunk[] }> = [];
+    const docIds = eligibleDocs.map((doc) => doc.id).filter((id) => id !== ONBOARDING_DOC_ID);
+    const units: Array<{ unit: FieldUnit; kind: FieldKind }> = [];
 
     for (const unit of groupFields(schema.fields)) {
       const field = unit.question;
@@ -105,43 +102,62 @@ export async function POST(req: Request) {
         continue;
       }
 
-      const kind = classifyField(field);
-      const retrieved = await retrieveForField(field, kind, docIds, submittedFormDocIds(), formContext);
-      pending.push({ unit, kind, retrieved });
+      units.push({ unit, kind: classifyField(field) });
     }
 
+    const [documentLinks, pastAnswers, queryVectors] = await Promise.all([
+      loadDocumentLinks(eligibleDocs),
+      pastFormAnswers(),
+      units.length > 0
+        ? embedTexts(units.map(({ unit, kind }) => questionQuery(unit.question, kind))).catch((error) => {
+          console.warn('[fill] query embedding failed', error);
+          return [] as number[][];
+        })
+        : Promise.resolve([] as number[][]),
+    ]);
+
+    const historyChunk: VectorDocumentChunk | null = pastAnswers.length > 0 ? {
+      id: 'history',
+      documentId: 'history',
+      documentName: 'Previous form answers',
+      chunkIndex: 0,
+      content: pastAnswers.join('\n'),
+      metadata: {},
+      similarity: 0.5,
+    } : null;
+
+    const pending = await Promise.all(units.map(async ({ unit, kind }, index) => {
+      const retrieved = await retrieveForField(unit.question, kind, docIds, queryVectors[index]);
+      return { unit, kind, retrieved: historyChunk ? [...retrieved, historyChunk] : retrieved };
+    }));
+
+    const facts = collectFacts(pending.map((item) => item.retrieved.filter((chunk) => chunk.documentId !== 'history')));
     let modelAnswers = new Map<string, GeminiFieldAnswer>();
-    try {
-      const answers = await reasonAboutForm({
-        title: schema.title || '',
-        url: schema.url || '',
-        fields: pending.map(({ unit, retrieved }) => ({
-          id: unit.question.id,
-          label: unit.question.label || unit.question.name || 'Question',
-          type: unit.question.type,
-          options: (unit.question.options || []).map((option) => ({
-            label: option.label,
-            value: option.value || option.label,
+    if (pending.length > 0) {
+      try {
+        const answers = await reasonAboutForm({
+          heading: (schema.title || '').slice(0, 300),
+          tone,
+          questions: pending.map(({ unit, retrieved }) => ({
+            id: unit.question.id,
+            label: unit.question.label || unit.question.name || unit.question.placeholder || 'Question',
+            type: unit.kind === 'choice' && unit.multiple ? 'checkbox group' : unit.question.type,
+            ...(unit.question.options?.length ? { options: unit.question.options.map((option) => option.value || option.label) } : {}),
+            facts: facts.idsFor(retrieved),
           })),
-          passages: [
-            ...retrieved.slice(0, 5).map((chunk) => ({
-              documentName: chunk.documentName,
-              excerpt: chunk.content.replace(/\s+/g, ' ').trim().slice(0, 500),
-            })),
-            ...(documentLinks.length > 0 ? [{
-              documentName: 'Links found in the documents',
-              excerpt: documentLinks.slice(0, 12).map((link) => link.url).join('\n'),
-            }] : []),
-          ],
-        })),
-      });
-      modelAnswers = new Map(answers.map((answer) => [answer.fieldId, answer]));
-    } catch (error) {
-      console.warn('[fill] Gemini reasoning unavailable, using retrieved passages', error);
+          facts: facts.list,
+          pastAnswers,
+          links: documentLinks.slice(0, 20).map((link) => `${link.label}: ${link.url}`),
+        });
+        modelAnswers = new Map(answers.map((answer) => [answer.fieldId, answer]));
+      } catch (error) {
+        console.warn('[fill] Gemini reasoning unavailable, using retrieved passages', error);
+      }
     }
 
     for (const item of pending) {
-      const fromModel = predictionsFromModel(item.unit, modelAnswers.get(item.unit.question.id), item.retrieved);
+      const answer = modelAnswers.get(item.unit.question.id);
+      const fromModel = predictionsFromModel(item.unit, answer, citationFor(answer, facts, historyChunk, documentLinks));
       if (fromModel) {
         predictions.push(...fromModel);
         continue;
@@ -178,6 +194,67 @@ export async function POST(req: Request) {
     console.error('[API /api/fill-form POST error]', error);
     return NextResponse.json({ error: 'Failed to process agentic form reasoning' }, { status: 500 });
   }
+}
+
+type Citation = NonNullable<PredictedFieldValue['citation']>;
+
+function collectFacts(perField: VectorDocumentChunk[][]) {
+  const list: FormFact[] = [];
+  const idByKey = new Map<string, string>();
+  const chunkById = new Map<string, VectorDocumentChunk>();
+  const keyOf = (chunk: VectorDocumentChunk) => `${chunk.documentId}:${chunk.chunkIndex}`;
+
+  for (let rank = 0; rank < 5; rank += 1) {
+    for (const chunks of perField) {
+      const chunk = chunks[rank];
+      if (!chunk || idByKey.has(keyOf(chunk)) || list.length >= 36) continue;
+      const profile = chunk.documentId === ONBOARDING_DOC_ID;
+      const id = `${profile ? 'P' : 'D'}${list.length + 1}`;
+      idByKey.set(keyOf(chunk), id);
+      chunkById.set(id, chunk);
+      list.push({
+        id,
+        source: profile ? 'Profile' : chunk.documentName,
+        text: chunk.content.replace(/\s+/g, ' ').trim().slice(0, 700),
+      });
+    }
+  }
+
+  return {
+    list,
+    chunkById,
+    idsFor: (chunks: VectorDocumentChunk[]) => chunks
+      .map((chunk) => idByKey.get(keyOf(chunk)))
+      .filter((id): id is string => Boolean(id))
+      .slice(0, 5),
+  };
+}
+
+function citationFor(
+  answer: GeminiFieldAnswer | undefined,
+  facts: ReturnType<typeof collectFacts>,
+  historyChunk: VectorDocumentChunk | null,
+  links: DocumentLink[]
+): Citation | undefined {
+  if (!answer?.value) return undefined;
+  const source = answer.source.replace(/[\[\]]/g, '').trim().toUpperCase();
+  const chunk = facts.chunkById.get(source);
+  if (chunk) {
+    return {
+      documentId: chunk.documentId,
+      documentName: chunk.documentId === ONBOARDING_DOC_ID ? 'Profile' : chunk.documentName,
+      excerpt: chunk.content.replace(/\s+/g, ' ').trim().slice(0, 180),
+    };
+  }
+  if (source === 'H' && historyChunk) {
+    const line = historyChunk.content.split('\n').find((item) => item.toLowerCase().includes(answer.value.toLowerCase()));
+    return { documentId: 'history', documentName: 'Previous form answers', excerpt: (line || '').slice(0, 180) };
+  }
+  if (source === 'L') {
+    const link = links.find((item) => item.url === answer.value);
+    if (link) return link.citation;
+  }
+  return undefined;
 }
 
 type ChoiceUnit = {
@@ -239,12 +316,15 @@ function groupFields(fields: FormField[]): FieldUnit[] {
 }
 
 function usableAnswer(field: FormField, raw: string): string {
-  let text = raw.replace(/\s+/g, ' ').trim();
-  const labeled = text.match(/^[^:]{2,80}:\s*(.+)$/);
-  if (labeled && labeled[1].trim().length > 0 && labeled[1].trim().length < text.length) {
-    text = labeled[1].trim();
+  let text = raw.trim();
+  if (field.type !== 'textarea') {
+    text = text.replace(/\s+/g, ' ');
+    const labeled = text.match(/^[^:]{2,40}:\s*(.+)$/);
+    if (labeled && !/^https?$/i.test(text.split(':')[0]) && labeled[1].trim().length > 0) {
+      text = labeled[1].trim();
+    }
   }
-  const limit = field.type === 'textarea' ? 500 : 160;
+  const limit = field.type === 'textarea' ? 2000 : 300;
   if (!text || text.length > limit) return '';
   return text;
 }
@@ -252,18 +332,12 @@ function usableAnswer(field: FormField, raw: string): string {
 function predictionsFromModel(
   unit: FieldUnit,
   answer: GeminiFieldAnswer | undefined,
-  retrieved: VectorDocumentChunk[]
+  citation: Citation | undefined
 ): PredictedFieldValue[] | null {
   const value = usableAnswer(unit.question, answer?.value || '');
   if (!answer || !value) return null;
-  const citationChunk = retrieved.find((chunk) => chunk.documentName === answer.documentName) || retrieved[0];
-  const citation = citationChunk ? {
-    documentId: citationChunk.documentId,
-    documentName: answer.documentName || citationChunk.documentName,
-    excerpt: (answer.excerpt || citationChunk.content).replace(/\s+/g, ' ').trim().slice(0, 180),
-  } : undefined;
   const confidence = answer.confidence || 0.8;
-  const rationale = answer.rationale || 'Answered from the page heading and the matching passage.';
+  const rationale = citation ? `Answered from ${citation.documentName}.` : 'Answered from your saved facts.';
 
   if (unit.kind === 'single') {
     return [{
@@ -316,23 +390,20 @@ function choiceQuestion(labels: string[]): string {
   return `Choose one of ${labels.join(', ')}`;
 }
 
-async function retrieveForField(field: FormField, kind: FieldKind, docIds: string[], historyIds: string[], formContext: string): Promise<VectorDocumentChunk[]> {
-  const query = `${questionQuery(field, kind)}\n${formContext}`.trim().slice(0, 1800);
+async function retrieveForField(field: FormField, kind: FieldKind, docIds: string[], queryEmbedding?: number[]): Promise<VectorDocumentChunk[]> {
+  const query = questionQuery(field, kind).slice(0, 1800);
   const terms = questionTerms(field, kind);
-  const [chunks, profileChunks, historyChunks, keywordChunks] = await Promise.all([
-    searchVectorChunks({ query, topK: 8, filterDocIds: docIds }),
-    searchVectorChunks({ query, topK: 2, filterDocIds: [ONBOARDING_DOC_ID] }),
-    historyIds.length > 0
-      ? searchVectorChunks({ query, topK: 4, filterDocIds: historyIds })
-      : Promise.resolve([]),
+  const [chunks, profileChunks, keywordChunks] = await Promise.all([
+    docIds.length > 0 ? searchVectorChunks({ query, queryEmbedding, topK: 6, filterDocIds: docIds }) : Promise.resolve([]),
+    searchVectorChunks({ query, queryEmbedding, topK: 2, filterDocIds: [ONBOARDING_DOC_ID] }),
     searchKeywordChunks({
       terms,
-      filterDocIds: [...docIds, ONBOARDING_DOC_ID, ...historyIds],
-      limit: 8,
+      filterDocIds: [...docIds, ONBOARDING_DOC_ID],
+      limit: 6,
     }),
   ]);
   const seen = new Set<string>();
-  return [...keywordChunks, ...profileChunks, ...historyChunks, ...chunks].filter((chunk) => {
+  return [...keywordChunks.slice(0, 2), ...profileChunks, ...chunks, ...keywordChunks.slice(2)].filter((chunk) => {
     const key = `${chunk.documentId}:${chunk.chunkIndex}`;
     if (seen.has(key)) return false;
     seen.add(key);
@@ -458,28 +529,44 @@ function yearValue(month: string | undefined, year: string): number | null {
 
 type DocumentLink = {
   url: string;
+  label: string;
   citation: NonNullable<PredictedFieldValue['citation']>;
 };
 
+const linkCache = new Map<string, DocumentLink[]>();
+
 async function loadDocumentLinks(docs: KBDocument[]): Promise<DocumentLink[]> {
-  const links: DocumentLink[] = [];
-  for (const doc of docs) {
-    if (doc.id === ONBOARDING_DOC_ID || doc.sourceType === 'snippet' || doc.sourceType === 'history') continue;
-    const payload = await fetchDocumentFilePayload(doc.id);
-    if (!payload?.fileBase64) continue;
-    const urls = await extractPdfLinks(Buffer.from(payload.fileBase64, 'base64'));
-    for (const url of urls) {
-      links.push({
-        url,
-        citation: {
-          documentId: doc.id,
-          documentName: doc.name,
-          excerpt: url,
-        },
-      });
+  const sources = docs.filter((doc) => doc.id !== ONBOARDING_DOC_ID && doc.sourceType !== 'snippet' && doc.sourceType !== 'history');
+  const perDoc = await Promise.all(sources.map(async (doc) => {
+    const cacheKey = `${doc.id}:${doc.updatedAt}`;
+    const cached = linkCache.get(cacheKey);
+    if (cached) return cached;
+    const links: DocumentLink[] = [];
+    try {
+      const payload = await fetchDocumentFilePayload(doc.id);
+      if (payload?.fileBase64) {
+        const found = await extractDocumentLinks(payload.originalFilename, payload.mimeType, Buffer.from(payload.fileBase64, 'base64'));
+        for (const link of found) {
+          const label = link.context ? `${link.label} (${link.context})` : link.label;
+          links.push({
+            url: link.url,
+            label,
+            citation: { documentId: doc.id, documentName: doc.name, excerpt: `${label}: ${link.url}` },
+          });
+        }
+      }
+      linkCache.set(cacheKey, links);
+    } catch (error) {
+      console.warn('[loadDocumentLinks]', error);
     }
-  }
-  return links;
+    return links;
+  }));
+  const seen = new Set<string>();
+  return perDoc.flat().filter((link) => {
+    if (seen.has(link.url)) return false;
+    seen.add(link.url);
+    return true;
+  });
 }
 
 async function chooseUploadDocument(field: FormField, schema: FormSchema, docs: KBDocument[]): Promise<KBDocument | undefined> {
@@ -511,13 +598,13 @@ async function chooseUploadDocument(field: FormField, schema: FormSchema, docs: 
 function chooseLink(links: DocumentLink[], field: FormField, schema: FormSchema): DocumentLink | null {
   const label = `${field.label || ''} ${field.placeholder || ''}`.toLowerCase();
   const scored = links
-    .map((link) => ({ link, score: scoreLink(link.url, label, schema) }))
+    .map((link) => ({ link, score: scoreLink(link.url, link.label, label, schema) }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score);
   return scored[0]?.link || null;
 }
 
-function scoreLink(url: string, label: string, schema: FormSchema): number {
+function scoreLink(url: string, linkLabel: string, label: string, schema: FormSchema): number {
   if (/mailto:/i.test(url)) return 0;
   if (/linkedin/.test(label)) return /linkedin\.com/i.test(url) ? 10 : 0;
   if (/portfolio/.test(label) && !/project/.test(label)) return /portfolio|vercel\.app/i.test(url) ? 8 : 0;
@@ -537,8 +624,9 @@ function scoreLink(url: string, label: string, schema: FormSchema): number {
   }
   const tokens = `${schema.title} ${label}`.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 3);
   const ignore = new Set(['link', 'relevant', 'project', 'your', 'with', 'this', 'http', 'https', 'website']);
+  const haystack = `${url} ${linkLabel}`.toLowerCase();
   for (const token of tokens) {
-    if (!ignore.has(token) && url.toLowerCase().includes(token)) score += 5;
+    if (!ignore.has(token) && haystack.includes(token)) score += 5;
   }
   return score;
 }

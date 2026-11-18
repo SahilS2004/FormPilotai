@@ -156,12 +156,11 @@ export async function storeDocumentVectors(params: {
 let chunkRepairStarted = false;
 let pendingReindex: Promise<void> | null = null;
 
-/** Re-embeds documents left pending after the vector width changes. Runs once per process. */
+/** Embeds documents marked pending. Concurrent callers share one run. */
 export function reindexPendingDocuments(): Promise<void> {
   if (!pendingReindex) {
-    pendingReindex = runReindex().catch((error) => {
+    pendingReindex = runReindex().finally(() => {
       pendingReindex = null;
-      throw error;
     });
   }
   return pendingReindex;
@@ -224,11 +223,12 @@ export async function searchVectorChunks(params: {
   topK?: number;
   filterDocIds?: string[];
   docTypeFilter?: string;
+  queryEmbedding?: number[];
 }): Promise<VectorDocumentChunk[]> {
   const { query, topK = 5, filterDocIds, docTypeFilter } = params;
-  if (!query || !query.trim()) return [];
+  if (!params.queryEmbedding && (!query || !query.trim())) return [];
 
-  const queryEmbedding = await generateEmbedding(query);
+  const queryEmbedding = params.queryEmbedding || await generateEmbedding(query);
   const pool = getDbPool();
   const isHealthy = await checkPostgresHealth();
 

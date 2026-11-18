@@ -4,8 +4,10 @@ export async function register() {
     startReminderScheduler();
     const { refreshDocumentText } = await import('./lib/refresh-documents');
     const { reindexPendingDocuments } = await import('./lib/vector');
+    const { ensureSubmittedFormsIndexed } = await import('./lib/history-index');
     void refreshDocumentText()
       .then(() => reindexPendingDocuments())
+      .then(() => ensureSubmittedFormsIndexed())
       .catch((error) => {
         console.error('[reindex] knowledge base reindex failed', error);
       });

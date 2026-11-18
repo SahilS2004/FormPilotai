@@ -30,8 +30,8 @@ export const SITE_CONFIG = {
   },
   defaultModel: {
     provider: 'Google Gemini',
-    name: 'Gemini 3.5 Flash',
-    fallback: 'Gemini 3.6 Flash',
+    name: 'Gemini 3 Flash',
+    fallback: 'Gemini 3.5 Flash',
     embedding: 'Gemini Embedding 2',
     contextWindow: '1M tokens',
     description: 'Reads the page heading and answers each field from the knowledge base. Embeddings are remote. No local model runs in production.'

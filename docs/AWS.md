@@ -1,6 +1,6 @@
 # Production on AWS
 
-The default agent is the free **Gemini 3.5 Flash** model. If that model is busy, the server tries Gemini 3.6 Flash. Embeddings use Gemini Embedding 2. The container does not run a local model.
+The default agent is the free **Gemini 3 Flash** model. If that model is busy or out of free requests, the server tries Gemini 3.5 Flash, then other free Flash models. Embeddings use Gemini Embedding 2. The container does not run a local model.
 
 ## Setup steps
 
@@ -41,7 +41,7 @@ The stack creates the network, database, bucket, cluster, and secret. Those do n
 | Network | Two availability zones, private tasks, NAT gateway so the tasks can reach Gemini |
 | Load balancer | Public application load balancer, HTTPS when a certificate ARN is passed |
 | Secret | Gemini API key in Secrets Manager |
-| Agent | Gemini 3.5 Flash, fallback Gemini 3.6 Flash |
+| Agent | Gemini 3 Flash, fallback Gemini 3.5 Flash |
 
 The Chrome extension uses this load balancer for fill, documents, history, and reminders. Reload the unpacked extension from `apps/extension/dist` after pulling.
 
