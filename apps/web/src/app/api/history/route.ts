@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { historyStore } from '@/lib/store';
+import { fetchAllHistory, createHistoryRecord } from '@/lib/db';
 import { FormFillHistoryRecord } from '@formpilot/shared';
 
 export async function GET() {
+  const history = await fetchAllHistory();
   return NextResponse.json({
-    history: historyStore
+    history
   });
 }
 
@@ -24,8 +25,8 @@ export async function POST(req: Request) {
       fields: body.fields || []
     };
 
-    historyStore.unshift(newRecord);
-    return NextResponse.json({ record: newRecord }, { status: 201 });
+    const savedRecord = await createHistoryRecord(newRecord);
+    return NextResponse.json({ record: savedRecord }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to record history' }, { status: 500 });
   }

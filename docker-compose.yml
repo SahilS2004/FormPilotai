@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # =========================================================================
+  # 1. PostgreSQL Database Service
+  # =========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: formpilot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: formpilot
+      POSTGRES_PASSWORD: formpilot_secure_pass_2026
+      POSTGRES_DB: formpilot_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U formpilot -d formpilot_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - formpilot-network
+
+  # =========================================================================
+  # 2. FormPilot AI Web Application (Next.js Dashboard & Context API)
+  # =========================================================================
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: formpilot-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://formpilot:formpilot_secure_pass_2026@postgres:5432/formpilot_db
+      NEXT_TELEMETRY_DISABLED: 1
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - formpilot-network
+
+networks:
+  formpilot-network:
+    driver: bridge
+
+volumes:
+  pgdata:
+    driver: local

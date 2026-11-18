@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { documentsStore, documentContentsStore } from '@/lib/store';
+import { fetchAllDocuments, createDocumentRecord, toggleDocumentScope } from '@/lib/db';
+import { documentsStore } from '@/lib/store';
 import { KBDocument } from '@formpilot/shared';
 
 export async function GET() {
+  const documents = await fetchAllDocuments();
   return NextResponse.json({
-    documents: documentsStore
+    documents
   });
 }
 
@@ -23,12 +25,8 @@ export async function POST(req: Request) {
       updatedAt: new Date().toISOString()
     };
 
-    documentsStore.unshift(newDoc);
-    if (body.content) {
-      documentContentsStore.set(newDoc.id, body.content);
-    }
-
-    return NextResponse.json({ document: newDoc }, { status: 201 });
+    const savedDoc = await createDocumentRecord(newDoc, body.content);
+    return NextResponse.json({ document: savedDoc }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create document' }, { status: 500 });
   }
@@ -37,39 +35,16 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const { id, isEnabled, description } = await req.json();
-    const doc = documentsStore.find((d) => d.id === id);
-    if (!doc) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
-    }
-
     if (typeof isEnabled === 'boolean') {
-      doc.isEnabled = isEnabled;
+      await toggleDocumentScope(id);
     }
-    if (typeof description === 'string') {
+    const doc = documentsStore.find((d) => d.id === id);
+    if (doc && typeof description === 'string') {
       doc.description = description;
     }
-    doc.updatedAt = new Date().toISOString();
-
-    return NextResponse.json({ document: doc });
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to update document' }, { status: 500 });
-  }
-}
-
-export async function DELETE(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-    const index = documentsStore.findIndex((d) => d.id === id);
-    if (index === -1) {
-      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
-    }
-
-    documentsStore.splice(index, 1);
-    if (id) documentContentsStore.delete(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to delete document' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to update document' }, { status: 500 });
   }
 }

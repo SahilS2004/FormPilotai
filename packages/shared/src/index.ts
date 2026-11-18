@@ -260,3 +260,23 @@ export interface DocumentRecommendation {
   reason: string;
   targetedFields: string[];
 }
+
+// ==========================================
+// 11. Onboarding & Guided Interactive Tour
+// ==========================================
+
+export interface OnboardingChecklistItem {
+  id: string;
+  title: string;
+  description: string;
+  tabKey: 'kb' | 'reminders' | 'bulk' | 'history' | 'settings';
+  isCompleted: boolean;
+}
+
+export interface OnboardingTourStep {
+  targetSelector: string;
+  title: string;
+  description: string;
+  position: 'right' | 'left' | 'top' | 'bottom';
+  tabKey?: 'kb' | 'reminders' | 'bulk' | 'history' | 'settings';
+}
