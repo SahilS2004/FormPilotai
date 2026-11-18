@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FormPilot AI - Form Copilot</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="panel-container">
+    <!-- Header -->
+    <header class="panel-header">
+      <div class="logo-group">
+        <div class="logo-icon">FP</div>
+        <div>
+          <h2>FormPilot AI</h2>
+          <span class="subtext">Context-Aware Form Copilot</span>
+        </div>
+      </div>
+      <button id="btn-manage-kb" class="btn-manage" title="Open full Knowledge Base dashboard in web app">
+        Manage KB ↗
+      </button>
+    </header>
+
+    <!-- Primary Action -->
+    <section class="action-section">
+      <button id="btn-fill-form" class="btn-primary">
+        <span class="icon">⚡</span>
+        <span>Fill Form</span>
+      </button>
+      <div id="fill-status" class="fill-status hidden">Ready to scan current webpage</div>
+    </section>
+
+    <!-- Multi-Step Form Navigator (conditional) -->
+    <section id="multistep-card" class="multistep-card hidden">
+      <div class="multistep-header">
+        <span class="step-badge">Multi-Step Form Detected</span>
+        <span id="step-counter" class="step-counter">Step 1 of 3</span>
+      </div>
+      <p class="multistep-desc">Form contains multiple pages. Validate this step and auto-continue.</p>
+      <button id="btn-next-step" class="btn-secondary">Proceed to Next Step →</button>
+    </section>
+
+    <!-- Knowledge Base Scope Section -->
+    <section class="kb-section">
+      <div class="section-title-row">
+        <h3>Active Knowledge Base</h3>
+        <span id="active-docs-badge" class="badge">0 Active</span>
+      </div>
+      <p class="section-desc">Toggle documents to include or exclude from this form's context.</p>
+
+      <div id="doc-list" class="doc-list">
+        <!-- Dynamically populated document rows -->
+        <div class="doc-loading">Loading Knowledge Base documents...</div>
+      </div>
+    </section>
+
+    <!-- Missing Document Recommendation Banner -->
+    <section id="gap-alert-card" class="gap-alert-card hidden">
+      <div class="gap-title">⚠️ Missing Document Recommended</div>
+      <p id="gap-reason" class="gap-desc">This form asks for credentials not found in your active documents.</p>
+      <button id="btn-gap-upload" class="btn-alert">Upload Recommended Doc</button>
+    </section>
+
+    <!-- Options & Heatmap Toggle -->
+    <section class="options-section">
+      <div class="toggle-row">
+        <span>Confidence Heatmap & Citations</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-heatmap" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="panel-footer">
+      <span>Connected to FormPilot Engine</span>
+    </footer>
+  </div>
+
+  <script src="../sidepanel.js"></script>
+</body>
+</html>
