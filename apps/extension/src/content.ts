@@ -294,7 +294,10 @@ function armSubmitWatcher() {
   }, true);
 }
 
+const OWN_APP_HOST = /(^|\.)formpilot\.|\.elb\.amazonaws\.com$|^localhost$|^127\.0\.0\.1$/i;
+
 function reportSubmittedForm(wasAutoSubmitted: boolean) {
+  if (OWN_APP_HOST.test(location.hostname)) return;
   const schema = DomFormExtractor.extractFormSchema(document);
   rememberCurrentAnswers(schema);
   const fields = Array.from(collectedAnswers.values()).filter((field) => field.answer.trim() !== '');

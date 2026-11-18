@@ -10,13 +10,33 @@ export function historyDocumentId(historyId: string): string {
 }
 
 const SENSITIVE_QUESTION = /password|passcode|otp|cvv|cvc|card number|ssn|social security|captcha/i;
+const OWN_APP_HOST = /(^|\.)formpilot\.|\.elb\.amazonaws\.com$|^localhost$|^127\.0\.0\.1$/i;
+
+function fromOwnApp(record: FormFillHistoryRecord): boolean {
+  let host = record.domain || '';
+  try {
+    host = new URL(record.url).hostname || host;
+  } catch {
+    // Older records may only have a domain.
+  }
+  return OWN_APP_HOST.test(host);
+}
+
+/** Placeholder text, glued option lists, and unlabeled inputs are not questions the user answered. */
+function isRealQuestion(question: string): boolean {
+  if (!/[a-z]{2}/i.test(question) || question.length > 120) return false;
+  if (/^unnamed question$/i.test(question) || question.includes('@') || /[•●]{2,}/.test(question)) return false;
+  if (!/\s/.test(question) && question.length > 25) return false;
+  return true;
+}
 
 function historyLines(record: FormFillHistoryRecord): Array<{ question: string; answer: string }> {
   const lines: Array<{ question: string; answer: string }> = [];
+  if (fromOwnApp(record)) return lines;
   for (const field of record.fields || []) {
     const question = String(field.question || '').replace(/[*]+/g, ' ').replace(/\s+/g, ' ').trim();
     const answer = String(field.answer || '').replace(/\s+/g, ' ').trim();
-    if (!question || !answer || SENSITIVE_QUESTION.test(question)) continue;
+    if (!question || !answer || SENSITIVE_QUESTION.test(question) || !isRealQuestion(question)) continue;
     if (/^(true|false|on|off)$/i.test(answer)) continue;
     lines.push({ question, answer: answer.slice(0, 600) });
   }

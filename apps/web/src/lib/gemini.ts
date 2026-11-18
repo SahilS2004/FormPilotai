@@ -190,6 +190,7 @@ Which facts to trust:
 - The profile holds personal details such as name, email, phone, date of birth, and address.
 - Documents hold experience, education, projects, skills, and links.
 - When a past form answer and a document disagree, use the past form answer.
+- Past answers can come from forms that were not about the user, such as a DNS record or an admin setting. Ignore any answer that is clearly not a fact about the user.
 - A job with an end date before today is not the current job.
 
 Return JSON only: {"answers":[{"fieldId":"","value":"","confidence":0,"source":""}]}
