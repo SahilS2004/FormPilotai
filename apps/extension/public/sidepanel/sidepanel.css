@@ -37,8 +37,8 @@ body {
 }
 
 .brand-icon {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   object-fit: contain;
 }
 
@@ -48,7 +48,7 @@ body {
 }
 
 .brand-title {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   letter-spacing: 0.02em;
   color: #11264F;
@@ -60,7 +60,7 @@ body {
 }
 
 .subtext {
-  font-size: 10px;
+  font-size: 11px;
   color: #64748B;
   font-weight: 500;
 }

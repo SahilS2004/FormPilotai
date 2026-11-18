@@ -231,7 +231,7 @@ export default function DashboardPage() {
               <img 
                 src="/brand/logo-full.png" 
                 alt="FormPilot AI" 
-                className="h-9 w-auto object-contain cursor-pointer transition hover:opacity-90"
+                className="h-12 sm:h-13 w-auto object-contain cursor-pointer transition hover:opacity-90"
               />
             </Link>
           </div>

@@ -38,7 +38,7 @@ export default function LandingPage() {
             <img 
               src="/brand/logo-full.png" 
               alt="FormPilot AI" 
-              className="h-11 w-auto object-contain cursor-pointer transition hover:opacity-95"
+              className="h-13 sm:h-14 w-auto object-contain cursor-pointer transition hover:opacity-95"
             />
           </Link>
 
@@ -246,7 +246,7 @@ export default function LandingPage() {
                   {/* Sidepanel Header */}
                   <div className="flex items-center justify-between pb-3 border-b border-slate-200">
                     <div className="flex items-center gap-2">
-                      <img src="/brand/logo-mark.png" alt="Mark" className="w-6 h-6 object-contain" />
+                      <img src="/brand/logo-mark.png" alt="Mark" className="w-8 h-8 object-contain" />
                       <span className="font-extrabold text-xs text-navy-800 tracking-wide">
                         FORM PILOT <span className="text-cyan-600">AI</span>
                       </span>
@@ -489,7 +489,7 @@ export default function LandingPage() {
       <footer className="bg-white border-t border-slate-200 py-10">
         <div className="max-w-[1540px] mx-auto px-6 sm:px-10 lg:px-12 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <img src="/brand/logo-full.png" alt="FormPilot AI" className="h-8 w-auto object-contain" />
+            <img src="/brand/logo-full.png" alt="FormPilot AI" className="h-11 w-auto object-contain" />
           </div>
           <p className="text-xs text-slate-500 font-medium">
             © {new Date().getFullYear()} FormPilot AI. Grounded Context-Aware Operations.

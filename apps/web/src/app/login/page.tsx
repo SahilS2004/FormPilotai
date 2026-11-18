@@ -156,7 +156,7 @@ export default function LoginPage() {
             <img 
               src="/brand/logo-full.png" 
               alt="FormPilot AI" 
-              className="h-11 w-auto object-contain cursor-pointer"
+              className="h-14 sm:h-15 w-auto object-contain cursor-pointer transition hover:opacity-95"
             />
           </Link>
         </div>
