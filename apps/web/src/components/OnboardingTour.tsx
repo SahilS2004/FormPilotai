@@ -101,10 +101,12 @@ export default function OnboardingTour({
       const el = document.getElementById(step.targetId);
       if (el) {
         const rect = el.getBoundingClientRect();
-        // Position cursor slightly inside/beside the element
+        const rawX = rect.right - 24;
+        const rawY = rect.top + rect.height / 2;
+        // Clamp cursor within safe viewport bounds
         setCursorPos({
-          x: rect.right - 24,
-          y: rect.top + rect.height / 2
+          x: Math.max(36, Math.min(window.innerWidth - 36, rawX)),
+          y: Math.max(36, Math.min(window.innerHeight - 36, rawY))
         });
       }
     };
@@ -175,8 +177,8 @@ export default function OnboardingTour({
         </div>
       )}
 
-      {/* Floating Guided Tour Card */}
-      <div className="fixed bottom-8 right-6 sm:right-10 z-50 pointer-events-auto max-w-md w-full">
+      {/* Floating Guided Tour Card - Fully Responsive on Mobile & Desktop */}
+      <div className="fixed inset-x-4 bottom-4 sm:inset-x-auto sm:bottom-8 sm:right-8 z-50 pointer-events-auto sm:max-w-md w-auto sm:w-full">
         <div className="bg-white/95 backdrop-blur-xl border border-white/80 rounded-3xl shadow-[0_20px_60px_-15px_rgba(17,38,79,0.25),0_0_0_1px_rgba(226,232,240,0.8)] p-6 space-y-5 transition-all">
           {/* Card Top Row */}
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">

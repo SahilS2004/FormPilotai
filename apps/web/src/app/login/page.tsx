@@ -137,9 +137,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
       {/* Back to Home Link */}
-      <div className="absolute top-6 left-6">
+      <div className="w-full max-w-md mx-auto mb-4 sm:mb-6 flex justify-start">
         <Link 
           href="/" 
           className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-navy-800 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs hover:shadow-xs transition"
@@ -156,7 +156,7 @@ export default function LoginPage() {
             <img 
               src="/brand/logo-full.png" 
               alt="FormPilot AI" 
-              className="h-14 sm:h-15 w-auto object-contain cursor-pointer transition hover:opacity-95"
+              className="h-11 sm:h-14 md:h-15 w-auto object-contain cursor-pointer transition hover:opacity-95"
             />
           </Link>
         </div>
