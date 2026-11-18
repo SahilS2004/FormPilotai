@@ -244,7 +244,7 @@ export default function LandingPage() {
                       </span>
                     </div>
                     <div className="p-2.5 bg-emerald-50/20 border-2 border-emerald-500 rounded-xl text-xs text-slate-800 font-medium">
-                      Sahil Sarawgi
+                      Alex Morgan
                     </div>
                     <span className="text-[10px] text-slate-400 block">Cited from: Resume_2026.pdf (Page 1)</span>
                   </div>
@@ -258,7 +258,7 @@ export default function LandingPage() {
                       </span>
                     </div>
                     <div className="p-2.5 bg-emerald-50/20 border-2 border-emerald-500 rounded-xl text-xs text-slate-800 font-medium">
-                      sahilsarawgi1239@gmail.com
+                      alex.morgan@example.com
                     </div>
                     <span className="text-[10px] text-slate-400 block">Verified primary contact</span>
                   </div>
@@ -272,7 +272,7 @@ export default function LandingPage() {
                       </span>
                     </div>
                     <div className="p-2.5 bg-emerald-50/20 border-2 border-emerald-500 rounded-xl text-xs text-slate-800 font-medium">
-                      +91 9876543210
+                      +1 (555) 019-2834
                     </div>
                     <span className="text-[10px] text-slate-400 block">Standard international format</span>
                   </div>

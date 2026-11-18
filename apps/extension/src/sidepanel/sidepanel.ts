@@ -156,43 +156,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (cachedDocuments && Array.isArray(cachedDocuments)) {
       currentDocuments = cachedDocuments;
     } else {
-      // Fallback seed docs if offline
-      currentDocuments = [
-        {
-          id: 'doc_1',
-          name: 'Sahil_Sarawgi_Resume_2026.pdf',
-          originalFilename: 'resume.pdf',
-          mimeType: 'application/pdf',
-          sizeBytes: 142800,
-          description: 'Updated Software Engineering resume detailing TypeScript and AI experience.',
-          isEnabled: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 'doc_2',
-          name: 'Form_1040_Tax_Return_2024.pdf',
-          originalFilename: 'tax.pdf',
-          mimeType: 'application/pdf',
-          sizeBytes: 312400,
-          description: 'Official tax declaration containing gross income and deductions.',
-          isEnabled: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 'doc_3',
-          name: 'Passport_and_ID_Scan.pdf',
-          originalFilename: 'passport.pdf',
-          mimeType: 'application/pdf',
-          sizeBytes: 890000,
-          description: 'Government identification with legal name and citizenship.',
-          isEnabled: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-      await chrome.storage.local.set({ cachedDocuments: currentDocuments });
+      currentDocuments = [];
+      await chrome.storage.local.set({ cachedDocuments: [] });
     }
 
     renderDocuments();
@@ -205,6 +170,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activeCount = currentDocuments.filter((d) => d.isEnabled).length;
     if (activeBadge) {
       activeBadge.innerText = `${activeCount} Active`;
+    }
+
+    if (currentDocuments.length === 0) {
+      docList.innerHTML = `
+        <div style="padding: 24px 12px; text-align: center; color: var(--text-muted); font-size: 12px; line-height: 1.5;">
+          No documents in Knowledge Base.<br>Upload documents in the web dashboard.
+        </div>
+      `;
+      return;
     }
 
     currentDocuments.forEach((doc) => {
