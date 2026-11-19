@@ -27,13 +27,36 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-chrome.windows.onRemoved.addListener((windowId) => {
-  chrome.storage.local.get('formpilot_popup_window_id').then((stored) => {
-    if (Number(stored.formpilot_popup_window_id) === windowId) {
-      chrome.storage.local.set({ formpilot_panel_open: false, formpilot_popup_window_id: null }).catch(() => {});
-    }
-  }).catch(() => {});
-});
+async function openSidePanelForTab(tabId: number): Promise<void> {
+  if (!chrome.sidePanel?.open) {
+    throw new Error('Side panel is not available in this Chrome build.');
+  }
+  await chrome.sidePanel.setOptions({
+    tabId,
+    path: 'sidepanel/sidepanel.html',
+    enabled: true,
+  });
+  await chrome.sidePanel.open({ tabId });
+  await chrome.storage.local.set({ formpilot_panel_open: true });
+}
+
+async function closeSidePanelForTab(tabId: number): Promise<void> {
+  const sidePanel = chrome.sidePanel as typeof chrome.sidePanel & {
+    close?: (options: { tabId: number }) => Promise<void>;
+  };
+  if (typeof sidePanel.close === 'function') {
+    await sidePanel.close({ tabId });
+  } else {
+    // Older Chrome: briefly disable the panel for this tab to dismiss it.
+    await sidePanel.setOptions({ tabId, enabled: false });
+    await sidePanel.setOptions({
+      tabId,
+      path: 'sidepanel/sidepanel.html',
+      enabled: true,
+    });
+  }
+  await chrome.storage.local.set({ formpilot_panel_open: false });
+}
 
 // Relay messages between Side Panel, Content Scripts, and Backend API
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -43,50 +66,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const tabId = sender.tab?.id;
     const toggle = message.type === 'TOGGLE_SIDE_PANEL';
     (async () => {
-      const stored = await chrome.storage.local.get(['formpilot_popup_window_id', 'formpilot_panel_open']);
-      const existingId = Number(stored.formpilot_popup_window_id) || 0;
-
-      if (toggle && existingId) {
-        try {
-          await chrome.windows.get(existingId);
-          await chrome.windows.remove(existingId);
-          await chrome.storage.local.set({ formpilot_panel_open: false, formpilot_popup_window_id: null });
-          sendResponse({ ok: true, open: false, mode: 'closed' });
-          return;
-        } catch {
-          await chrome.storage.local.set({ formpilot_panel_open: false, formpilot_popup_window_id: null });
-        }
+      if (tabId == null) {
+        sendResponse({ ok: false, open: false, error: 'No tab available for the side panel' });
+        return;
       }
 
-      if (toggle && stored.formpilot_panel_open && !existingId) {
-        // Side panel was opened from the toolbar; Chrome has no close API, so open a closable popup instead.
-        await chrome.storage.local.set({ formpilot_panel_open: false });
+      const stored = await chrome.storage.local.get('formpilot_panel_open');
+      const isOpen = Boolean(stored.formpilot_panel_open);
+
+      if (toggle && isOpen) {
+        await closeSidePanelForTab(tabId);
+        sendResponse({ ok: true, open: false, mode: 'sidepanel' });
+        return;
       }
 
-      try {
-        if (!toggle && tabId != null && chrome.sidePanel?.open) {
-          await chrome.sidePanel.open({ tabId });
-          await chrome.storage.local.set({ formpilot_panel_open: true, formpilot_popup_window_id: null });
-          sendResponse({ ok: true, open: true, mode: 'sidepanel' });
-          return;
-        }
-      } catch (err) {
-        console.warn('[FormPilot] side panel open failed, using a popup window', err);
-      }
-
-      const win = await chrome.windows.create({
-        url: chrome.runtime.getURL('sidepanel/sidepanel.html'),
-        type: 'popup',
-        width: 420,
-        height: 720,
-      });
-      await chrome.storage.local.set({
-        formpilot_panel_open: true,
-        formpilot_popup_window_id: win.id ?? null,
-      });
-      sendResponse({ ok: true, open: true, mode: 'popup', windowId: win.id });
+      await openSidePanelForTab(tabId);
+      sendResponse({ ok: true, open: true, mode: 'sidepanel' });
     })().catch((err) => {
       sendResponse({ ok: false, open: false, error: err?.message || 'Could not open FormPilot' });
+    });
+    return true;
+  }
+
+  if (message.type === 'SIDE_PANEL_STATE') {
+    const open = Boolean(message.payload?.open);
+    chrome.storage.local.set({ formpilot_panel_open: open }).then(() => {
+      sendResponse({ ok: true, open });
+    }).catch((err) => {
+      sendResponse({ ok: false, error: err?.message || 'Could not update panel state' });
     });
     return true;
   }

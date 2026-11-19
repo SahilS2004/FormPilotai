@@ -21,6 +21,11 @@ let activeTone: PersonaTone = 'professional';
 let isDarkMode = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  chrome.runtime.sendMessage({ type: 'SIDE_PANEL_STATE', payload: { open: true } }).catch(() => {});
+  window.addEventListener('pagehide', () => {
+    chrome.runtime.sendMessage({ type: 'SIDE_PANEL_STATE', payload: { open: false } }).catch(() => {});
+  });
+
   // UI Elements
   const btnManageKb = document.getElementById('btn-manage-kb');
   const btnThemeToggle = document.getElementById('btn-theme-toggle');
