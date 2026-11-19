@@ -168,7 +168,7 @@ export interface MicroPromptCommand {
 // 6. Dynamic Document Generator
 // ==========================================
 
-export type DocumentJobDocType = 'cover_letter' | 'statement' | 'other';
+export type DocumentJobDocType = 'cover_letter' | 'statement' | 'proposal' | 'other';
 
 export type DocumentJobStatus =
   | 'queued'

@@ -140,7 +140,17 @@ export class DomFormExtractor {
       if (refEl?.textContent?.trim()) return this.cleanLabel(refEl.textContent);
     }
 
-    // 4. Preceding sibling or nearby heading/paragraph
+    // 4. File dropzones hide the real question above a "Click to upload" hint.
+    if (el instanceof HTMLInputElement && el.type === 'file') {
+      const group = el.closest('[class*="fieldGroup"], [class*="field-group"], [class*="form-group"], fieldset') as HTMLElement | null;
+      const line = (group?.innerText || '')
+        .split('\n')
+        .map((part: string) => this.cleanLabel(part))
+        .find((part: string) => part.length > 1 && !/click to upload|choose a file|drag and drop|browse|upload pdf|upload a file/i.test(part));
+      if (line) return line;
+    }
+
+    // 5. Preceding sibling or nearby heading/paragraph
     const prevEl = el.previousElementSibling;
     if (prevEl && ['LABEL', 'SPAN', 'P', 'H4', 'H5', 'H6', 'STRONG', 'B'].includes(prevEl.tagName)) {
       if (prevEl.textContent?.trim()) return this.cleanLabel(prevEl.textContent);

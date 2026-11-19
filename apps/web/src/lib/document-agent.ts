@@ -12,7 +12,8 @@ Rules:
 - Use only the applicant facts and the company research provided.
 - Never invent employers, degrees, dates, awards, or metrics.
 - Write in the first person in the requested tone.
-- Cover letters and statements: 3 to 5 short paragraphs, plain text, no markdown headings.
+- Cover letters, proposals, and statements: 3 to 5 short paragraphs, plain text, no markdown headings.
+- A proposal explains the work the applicant would do. A cover letter introduces the applicant for the role.
 - Mention the company and role when they are known.
 - Use company research only for public facts (what they do, products, mission). Do not invent private details.
 - End with a polite closing and the applicant's name if it is in the facts.
@@ -59,7 +60,13 @@ function filenameFor(job: DocumentJob): string {
 }
 
 async function draftWithGemini(job: DocumentJob, research: string[], facts: string[]): Promise<{ title: string; body: string }> {
-  const kind = job.docType === 'statement' ? 'personal statement' : 'cover letter';
+  const kind = job.docType === 'proposal'
+    ? 'proposal'
+    : job.docType === 'statement'
+      ? 'personal statement'
+      : job.docType === 'other'
+        ? (job.title || 'application document')
+        : 'cover letter';
   const prompt = [
     `Document type: ${kind}`,
     `Requested title: ${job.title}`,

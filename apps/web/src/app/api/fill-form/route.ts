@@ -602,23 +602,23 @@ type FileCatalogItem = { doc: KBDocument; excerpt: string };
 type UploadDecision = {
   action: 'use_existing' | 'generate' | 'leave_empty';
   documentId?: string;
-  docType: 'cover_letter' | 'statement' | 'other';
+  docType: 'cover_letter' | 'statement' | 'proposal' | 'other';
   title: string;
   reason: string;
 };
 
 const UPLOAD_DECISION_PROMPT = `You choose what to do for one file upload on a form.
 
-Look at the form heading and the field, then read every existing document. Decide whether one of those files is the document this field is asking for.
+Look at the form heading and the field label, then read every existing document. Decide whether one saved file is the document this field is asking for.
 
 Return JSON only:
-{"action":"use_existing"|"generate"|"leave_empty","documentId":"","docType":"cover_letter"|"statement"|"other","title":"","reason":""}
+{"action":"use_existing"|"generate"|"leave_empty","documentId":"","docType":"cover_letter"|"statement"|"proposal"|"other","title":"","reason":""}
 
 Rules:
-- use_existing only when one listed file is the same kind of document the field asks for. A resume is not a cover letter. A cover letter is not a passport, photo, or certificate. documentId must be one of the listed ids.
-- generate only when the field asks for a written document we can draft (cover letter, motivation letter, statement of purpose, personal statement, or essay) and no existing file is that document. title is the document name, such as "Cover Letter".
-- leave_empty when the field needs a file we cannot write (ID, photo, certificate, transcript, tax form) and no existing file matches.
-- Do not pick a file just because it mentions the same company or skills. The file type has to match the request.`;
+- Resume or CV field: use_existing when a saved file is a resume or CV. Pick the resume whose description best matches the role in the form heading. documentId must be one of the listed ids.
+- Cover letter, motivation letter, proposal, statement of purpose, or personal statement: use_existing only when a saved file is itself that kind of document. A resume is not a cover letter or a proposal. If none is, action is generate. title is "Cover Letter" or "Proposal" or "Personal Statement".
+- leave_empty only for files we cannot write, such as a photo, passport, certificate, transcript, or tax form, when no saved file matches.
+- Do not pick a file just because it mentions the same skills. The document type has to match the field.`;
 
 async function loadFileCatalog(docs: KBDocument[]): Promise<FileCatalogItem[]> {
   const library = docs.filter((doc) => doc.id !== ONBOARDING_DOC_ID && doc.sourceType !== 'snippet' && doc.sourceType !== 'history');
@@ -664,7 +664,7 @@ async function decideFileUpload(field: FormField, schema: FormSchema, catalog: F
       title?: string;
       reason?: string;
     };
-    const docType = parsed.docType === 'cover_letter' || parsed.docType === 'statement' || parsed.docType === 'other'
+    const docType = parsed.docType === 'cover_letter' || parsed.docType === 'statement' || parsed.docType === 'proposal' || parsed.docType === 'other'
       ? parsed.docType
       : 'cover_letter';
     const title = String(parsed.title || fallbackTitle).trim().slice(0, 120) || fallbackTitle;

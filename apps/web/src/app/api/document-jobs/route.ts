@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
     const docType = (String(body.docType || 'cover_letter') as DocumentJobDocType);
     const job = await createDocumentJob({
-      docType: ['cover_letter', 'statement', 'other'].includes(docType) ? docType : 'cover_letter',
+      docType: ['cover_letter', 'statement', 'proposal', 'other'].includes(docType) ? docType : 'cover_letter',
       title,
       company: String(body.company || ''),
       role: String(body.role || ''),
