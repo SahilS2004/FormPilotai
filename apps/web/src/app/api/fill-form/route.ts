@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { fetchAllDocuments, fetchDocumentFilePayload } from '@/lib/db';
+import { fetchAllDocuments, fetchDocumentFilePayload, withDatabase } from '@/lib/db';
 import { reindexPendingDocuments, repairOversizedChunks, searchKeywordChunks, searchVectorChunks } from '@/lib/vector';
 import { extractDocumentLinks } from '@/lib/document-formatter';
 import { pastFormAnswers } from '@/lib/history-index';
-import { embedTexts, reasonAboutForm, FormFact, GeminiFieldAnswer } from '@/lib/gemini';
+import { embedTexts, reasonAboutForm, runtimeGenerate, FormFact, GeminiFieldAnswer } from '@/lib/gemini';
 import { FormSchema, FormField, PredictedFieldValue, KBDocument, VectorDocumentChunk, PersonaTone, DocumentRecommendation } from '@formpilot/shared';
 import { ONBOARDING_DOC_ID } from '@/lib/onboarding-profile';
 
@@ -37,6 +37,7 @@ export async function POST(req: Request) {
     const missingDocs: DocumentRecommendation[] = [];
     const docIds = eligibleDocs.map((doc) => doc.id).filter((id) => id !== ONBOARDING_DOC_ID);
     const units: Array<{ unit: FieldUnit; kind: FieldKind }> = [];
+    const fileCatalog = await loadFileCatalog(eligibleDocs);
 
     for (const unit of groupFields(schema.fields)) {
       const field = unit.question;
@@ -55,7 +56,10 @@ export async function POST(req: Request) {
       }
 
       if (field.type === 'file') {
-        const targetDoc = await chooseUploadDocument(field, schema, eligibleDocs);
+        const decision = await decideFileUpload(field, schema, fileCatalog);
+        const targetDoc = decision.action === 'use_existing'
+          ? fileCatalog.find((item) => item.doc.id === decision.documentId)?.doc
+          : undefined;
         if (targetDoc) {
           const fileData = await fetchDocumentFilePayload(targetDoc.id);
           const fileName = fileData?.originalFilename || targetDoc.originalFilename || targetDoc.name;
@@ -68,7 +72,7 @@ export async function POST(req: Request) {
             value: fileName,
             confidence: 0.92,
             confidenceLevel: 'high',
-            rationale: `Selected “${targetDoc.name}” for this upload from the knowledge base.`,
+            rationale: decision.reason || `Selected “${targetDoc.name}” because it matches this upload.`,
             citation: {
               documentId: targetDoc.id,
               documentName: targetDoc.name,
@@ -82,21 +86,17 @@ export async function POST(req: Request) {
               documentId: targetDoc.id
             }
           });
-        } else {
-          const generate = generatableUpload(field);
+        } else if (decision.action === 'generate') {
           missingDocs.push({
-            missingDocumentName: field.label || generate.suggestedTitle,
-            description: generate.suggestedTitle,
-            reason: generate.canGenerate
-              ? `FormPilot can draft a ${generate.suggestedTitle.toLowerCase()} for this upload.`
-              : `Field "${field.label}" needs a file from the knowledge base.`,
+            missingDocumentName: decision.title,
+            description: decision.title,
+            reason: decision.reason || `None of the saved documents fit this upload, so FormPilot will draft a ${decision.title.toLowerCase()}.`,
             targetedFields: [field.id],
-            canGenerate: generate.canGenerate,
-            docType: generate.docType,
-            suggestedTitle: generate.suggestedTitle,
+            canGenerate: true,
+            docType: decision.docType,
+            suggestedTitle: decision.title,
             fieldId: field.id,
           });
-
           predictions.push({
             fieldId: field.id,
             selector: field.selector,
@@ -104,10 +104,27 @@ export async function POST(req: Request) {
             value: '',
             confidence: 0.2,
             confidenceLevel: 'low',
-            rationale: 'No matching document is in the knowledge base.',
-            missingDocHint: generate.canGenerate
-              ? 'FormPilot can generate this document for review.'
-              : 'Upload your document in Knowledge Base to attach automatically'
+            rationale: decision.reason || 'No saved document fits this upload.',
+            missingDocHint: 'FormPilot can generate this document for review.',
+          });
+        } else {
+          missingDocs.push({
+            missingDocumentName: field.label || 'Document',
+            description: field.label || 'Document',
+            reason: decision.reason || `Field "${field.label}" needs a file that is not in the knowledge base.`,
+            targetedFields: [field.id],
+            canGenerate: false,
+            fieldId: field.id,
+          });
+          predictions.push({
+            fieldId: field.id,
+            selector: field.selector,
+            placeholder: field.placeholder,
+            value: '',
+            confidence: 0.2,
+            confidenceLevel: 'low',
+            rationale: decision.reason || 'No matching document is in the knowledge base.',
+            missingDocHint: 'Upload the required file in Knowledge Base to attach it.',
           });
         }
         continue;
@@ -580,48 +597,92 @@ async function loadDocumentLinks(docs: KBDocument[]): Promise<DocumentLink[]> {
   });
 }
 
-function generatableUpload(field: FormField): {
-  canGenerate: boolean;
+type FileCatalogItem = { doc: KBDocument; excerpt: string };
+
+type UploadDecision = {
+  action: 'use_existing' | 'generate' | 'leave_empty';
+  documentId?: string;
   docType: 'cover_letter' | 'statement' | 'other';
-  suggestedTitle: string;
-} {
-  const label = `${field.label || ''} ${field.name || ''} ${field.placeholder || ''}`.toLowerCase();
-  if (/cover\s*letter|motivation\s*letter|letter\s*of\s*interest/.test(label)) {
-    return { canGenerate: true, docType: 'cover_letter', suggestedTitle: 'Cover Letter' };
+  title: string;
+  reason: string;
+};
+
+const UPLOAD_DECISION_PROMPT = `You choose what to do for one file upload on a form.
+
+Look at the form heading and the field, then read every existing document. Decide whether one of those files is the document this field is asking for.
+
+Return JSON only:
+{"action":"use_existing"|"generate"|"leave_empty","documentId":"","docType":"cover_letter"|"statement"|"other","title":"","reason":""}
+
+Rules:
+- use_existing only when one listed file is the same kind of document the field asks for. A resume is not a cover letter. A cover letter is not a passport, photo, or certificate. documentId must be one of the listed ids.
+- generate only when the field asks for a written document we can draft (cover letter, motivation letter, statement of purpose, personal statement, or essay) and no existing file is that document. title is the document name, such as "Cover Letter".
+- leave_empty when the field needs a file we cannot write (ID, photo, certificate, transcript, tax form) and no existing file matches.
+- Do not pick a file just because it mentions the same company or skills. The file type has to match the request.`;
+
+async function loadFileCatalog(docs: KBDocument[]): Promise<FileCatalogItem[]> {
+  const library = docs.filter((doc) => doc.id !== ONBOARDING_DOC_ID && doc.sourceType !== 'snippet' && doc.sourceType !== 'history');
+  const excerpts = new Map<string, string>();
+  const pool = await withDatabase();
+  if (pool && library.length > 0) {
+    const res = await pool.query(
+      `SELECT id, left(coalesce(content_text, ''), 500) AS excerpt FROM documents WHERE id = ANY($1)`,
+      [library.map((doc) => doc.id)]
+    );
+    for (const row of res.rows) excerpts.set(String(row.id), String(row.excerpt || ''));
   }
-  if (/statement\s*of\s*purpose|\bsop\b|personal\s*statement|why\s*us|interest\s*statement/.test(label)) {
-    return { canGenerate: true, docType: 'statement', suggestedTitle: 'Personal Statement' };
-  }
-  if (/upload|attach|document|file/.test(label) && /letter|statement|essay|write.?up/.test(label)) {
-    return { canGenerate: true, docType: 'other', suggestedTitle: field.label || 'Application Document' };
-  }
-  return { canGenerate: false, docType: 'other', suggestedTitle: field.label || 'Document' };
+  return library.map((doc) => ({
+    doc,
+    excerpt: (excerpts.get(doc.id) || doc.description || '').replace(/\s+/g, ' ').trim().slice(0, 500),
+  }));
 }
 
-async function chooseUploadDocument(field: FormField, schema: FormSchema, docs: KBDocument[]): Promise<KBDocument | undefined> {
-  const library = docs.filter((doc) => doc.id !== ONBOARDING_DOC_ID && doc.sourceType !== 'snippet' && doc.sourceType !== 'history');
-  const label = `${field.label || ''} ${field.name || ''}`.toLowerCase();
-  const narrowed = library.filter((doc) => {
-    const blob = `${doc.name} ${doc.description || ''}`.toLowerCase();
-    if (/resume|cv/.test(label)) return /resume|cv/.test(blob);
-    if (/tax|w-?2|1099/.test(label)) return /tax|w-?2|1099/.test(blob);
-    if (/passport|identity|\bid\b/.test(label)) return /passport|identity|\bid\b/.test(blob);
-    return true;
-  });
-  const candidates = narrowed.length > 0 ? narrowed : library;
-  if (candidates.length === 0) return undefined;
-  if (candidates.length === 1) return candidates[0];
+async function decideFileUpload(field: FormField, schema: FormSchema, catalog: FileCatalogItem[]): Promise<UploadDecision> {
+  const fallbackTitle = field.label || 'Document';
+  const listed = catalog.map((item, index) => [
+    `[${index + 1}] id=${item.doc.id}`,
+    `name: ${item.doc.name}`,
+    item.doc.description ? `description: ${item.doc.description}` : '',
+    item.excerpt ? `excerpt: ${item.excerpt}` : '',
+  ].filter(Boolean).join('\n')).join('\n\n');
 
-  const chunks = await searchVectorChunks({
-    query: `${schema.title} ${schema.url} ${field.label || 'upload document'}`,
-    topK: 8,
-    filterDocIds: candidates.map((doc) => doc.id),
-  });
-  const best = new Map<string, number>();
-  for (const chunk of chunks) {
-    best.set(chunk.documentId, Math.max(best.get(chunk.documentId) || 0, Number(chunk.similarity) || 0));
+  try {
+    const raw = await runtimeGenerate(UPLOAD_DECISION_PROMPT, [
+      `Form heading: ${(schema.title || '').slice(0, 300) || 'Untitled form'}`,
+      `Field label: ${field.label || field.name || field.placeholder || 'File upload'}`,
+      `Field name: ${field.name || ''}`,
+      '',
+      catalog.length > 0 ? 'Existing documents:' : 'Existing documents: (none)',
+      listed || '(none)',
+    ].join('\n'));
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    const parsed = JSON.parse(raw.slice(start, end + 1)) as {
+      action?: string;
+      documentId?: string;
+      docType?: string;
+      title?: string;
+      reason?: string;
+    };
+    const docType = parsed.docType === 'cover_letter' || parsed.docType === 'statement' || parsed.docType === 'other'
+      ? parsed.docType
+      : 'cover_letter';
+    const title = String(parsed.title || fallbackTitle).trim().slice(0, 120) || fallbackTitle;
+    const reason = String(parsed.reason || '').trim().slice(0, 240);
+    const documentId = String(parsed.documentId || '').trim();
+    const known = catalog.some((item) => item.doc.id === documentId);
+
+    if (parsed.action === 'use_existing' && known) {
+      return { action: 'use_existing', documentId, docType, title, reason };
+    }
+    if (parsed.action === 'generate') {
+      return { action: 'generate', docType, title, reason };
+    }
+    return { action: 'leave_empty', docType, title, reason };
+  } catch (error) {
+    console.warn('[fill] upload decision failed', error);
+    return { action: 'leave_empty', docType: 'other', title: fallbackTitle, reason: 'Could not decide which file fits this upload.' };
   }
-  return [...candidates].sort((a, b) => (best.get(b.id) || 0) - (best.get(a.id) || 0))[0];
 }
 
 function chooseLink(links: DocumentLink[], field: FormField, schema: FormSchema): DocumentLink | null {
