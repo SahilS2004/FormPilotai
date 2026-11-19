@@ -7,11 +7,12 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@formpilot/shared": "workspace:*",
-    "@formpilot/dom-analyzer": "workspace:*"
+    "@formpilot/dom-analyzer": "workspace:*",
+    "@formpilot/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",
+    "esbuild": "^0.28.2",
     "typescript": "^5.5.3",
     "vite": "^5.3.4"
   }

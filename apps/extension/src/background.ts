@@ -27,31 +27,66 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
+chrome.windows.onRemoved.addListener((windowId) => {
+  chrome.storage.local.get('formpilot_popup_window_id').then((stored) => {
+    if (Number(stored.formpilot_popup_window_id) === windowId) {
+      chrome.storage.local.set({ formpilot_panel_open: false, formpilot_popup_window_id: null }).catch(() => {});
+    }
+  }).catch(() => {});
+});
+
 // Relay messages between Side Panel, Content Scripts, and Backend API
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || !message.type) return false;
 
-  if (message.type === 'OPEN_SIDE_PANEL') {
+  if (message.type === 'OPEN_SIDE_PANEL' || message.type === 'TOGGLE_SIDE_PANEL') {
     const tabId = sender.tab?.id;
+    const toggle = message.type === 'TOGGLE_SIDE_PANEL';
     (async () => {
+      const stored = await chrome.storage.local.get(['formpilot_popup_window_id', 'formpilot_panel_open']);
+      const existingId = Number(stored.formpilot_popup_window_id) || 0;
+
+      if (toggle && existingId) {
+        try {
+          await chrome.windows.get(existingId);
+          await chrome.windows.remove(existingId);
+          await chrome.storage.local.set({ formpilot_panel_open: false, formpilot_popup_window_id: null });
+          sendResponse({ ok: true, open: false, mode: 'closed' });
+          return;
+        } catch {
+          await chrome.storage.local.set({ formpilot_panel_open: false, formpilot_popup_window_id: null });
+        }
+      }
+
+      if (toggle && stored.formpilot_panel_open && !existingId) {
+        // Side panel was opened from the toolbar; Chrome has no close API, so open a closable popup instead.
+        await chrome.storage.local.set({ formpilot_panel_open: false });
+      }
+
       try {
-        if (tabId != null && chrome.sidePanel?.open) {
+        if (!toggle && tabId != null && chrome.sidePanel?.open) {
           await chrome.sidePanel.open({ tabId });
-          sendResponse({ ok: true, mode: 'sidepanel' });
+          await chrome.storage.local.set({ formpilot_panel_open: true, formpilot_popup_window_id: null });
+          sendResponse({ ok: true, open: true, mode: 'sidepanel' });
           return;
         }
       } catch (err) {
         console.warn('[FormPilot] side panel open failed, using a popup window', err);
       }
-      await chrome.windows.create({
+
+      const win = await chrome.windows.create({
         url: chrome.runtime.getURL('sidepanel/sidepanel.html'),
         type: 'popup',
         width: 420,
         height: 720,
       });
-      sendResponse({ ok: true, mode: 'popup' });
+      await chrome.storage.local.set({
+        formpilot_panel_open: true,
+        formpilot_popup_window_id: win.id ?? null,
+      });
+      sendResponse({ ok: true, open: true, mode: 'popup', windowId: win.id });
     })().catch((err) => {
-      sendResponse({ ok: false, error: err?.message || 'Could not open FormPilot' });
+      sendResponse({ ok: false, open: false, error: err?.message || 'Could not open FormPilot' });
     });
     return true;
   }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FormPilot AI - Context-Aware Form Copilot",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Autonomous AI form filling copilot powered by your Knowledge Base documents.",
   "permissions": [
     "sidePanel",

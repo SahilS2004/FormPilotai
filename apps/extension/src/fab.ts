@@ -21,9 +21,16 @@ function applyCorner(button: HTMLButtonElement, corner: Corner) {
   button.style.left = style.left || 'auto';
 }
 
+function setOpenState(button: HTMLButtonElement, open: boolean) {
+  button.setAttribute('aria-pressed', open ? 'true' : 'false');
+  button.setAttribute('aria-label', open ? 'Close FormPilot' : 'Open FormPilot');
+  button.title = open ? 'Close FormPilot' : 'Open FormPilot';
+  button.dataset.open = open ? '1' : '0';
+}
+
 /**
  * One logo button on the page. Drag it and it snaps to a corner.
- * A click opens the extension side panel.
+ * A click toggles the FormPilot extension window open or closed.
  */
 export function mountFloatingButton() {
   if (document.getElementById('formpilot-fab-host')) return;
@@ -48,7 +55,11 @@ export function mountFloatingButton() {
       padding: 8px;
       cursor: grab;
       box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
-      transition: top 160ms ease, left 160ms ease, right 160ms ease, bottom 160ms ease;
+      transition: top 160ms ease, left 160ms ease, right 160ms ease, bottom 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    }
+    button[aria-pressed="true"] {
+      border-color: rgba(15, 118, 110, 0.45);
+      box-shadow: 0 8px 24px rgba(15, 118, 110, 0.28);
     }
     button.dragging { cursor: grabbing; transition: none; }
     img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; display: block; }
@@ -56,8 +67,7 @@ export function mountFloatingButton() {
 
   const button = document.createElement('button');
   button.type = 'button';
-  button.setAttribute('aria-label', 'Open FormPilot');
-  button.title = 'Open FormPilot';
+  setOpenState(button, false);
   const image = document.createElement('img');
   image.alt = '';
   button.append(image);
@@ -66,13 +76,19 @@ export function mountFloatingButton() {
 
   let corner: Corner = 'br';
   applyCorner(button, corner);
-  chrome.storage.local.get('formpilot_fab_corner').then((stored) => {
+  chrome.storage.local.get(['formpilot_fab_corner', 'formpilot_panel_open']).then((stored) => {
     const saved = stored.formpilot_fab_corner;
     if (saved === 'tl' || saved === 'tr' || saved === 'bl' || saved === 'br') {
       corner = saved;
       applyCorner(button, corner);
     }
+    setOpenState(button, Boolean(stored.formpilot_panel_open));
   }).catch(() => {});
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.formpilot_panel_open) return;
+    setOpenState(button, Boolean(changes.formpilot_panel_open.newValue));
+  });
 
   fetch(chrome.runtime.getURL('icons/icon-128.png'))
     .then((res) => res.blob())
@@ -114,7 +130,10 @@ export function mountFloatingButton() {
     dragging = false;
     button.classList.remove('dragging');
     if (!moved) {
-      chrome.runtime.sendMessage({ type: 'OPEN_SIDE_PANEL' }).catch(() => {});
+      chrome.runtime.sendMessage({ type: 'TOGGLE_SIDE_PANEL' }, (response) => {
+        const open = Boolean(response?.open);
+        setOpenState(button, open);
+      });
       return;
     }
     corner = nearestCorner(event.clientX, event.clientY);
