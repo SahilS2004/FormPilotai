@@ -11,6 +11,18 @@ type BuilderResult = {
 const POLL_MS = 10_000;
 const MAX_WAIT_MS = 3 * 60_000;
 
+function jobTitleFromHeading(title: string): string {
+  const lines = title
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter((line) => line.length > 1 && !/^[-–—\s]+$/.test(line));
+  const specific = lines.find((line) => (
+    line.length <= 180
+    && /intern|developer|engineer|designer|manager|analyst|consultant|specialist|founder|officer/i.test(line)
+  ));
+  return (specific || lines.find((line) => line.length <= 140) || lines[0] || '').slice(0, 180);
+}
+
 function valueByLabel(predictions: PredictedFieldValue[], schema: FormSchema, pattern: RegExp): string {
   for (const pred of predictions) {
     const field = schema.fields.find((item) => item.id === pred.fieldId);
@@ -146,9 +158,10 @@ async function runOneGap(params: {
   const overlay = mountOverlay(docName);
   try {
     const company = valueByLabel(params.predictions, params.schema, /company|employer|organization|organisation/);
-    const role = valueByLabel(params.predictions, params.schema, /role|position|title|job/)
-      || params.schema.title
-      || '';
+    const answeredRole = valueByLabel(params.predictions, params.schema, /role|position|title|job/);
+    const role = answeredRole && answeredRole.length <= 180
+      ? answeredRole
+      : jobTitleFromHeading(params.schema.title || '');
     const create = await apiFetch('/api/document-jobs', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

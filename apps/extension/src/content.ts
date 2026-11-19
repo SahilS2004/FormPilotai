@@ -111,12 +111,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       const predictions: PredictedFieldValue[] = message.payload?.predictions || [];
       const showHeatmap: boolean = message.payload?.showHeatmap ?? true;
-      const skipFileFields: boolean = Boolean(message.payload?.skipFileFields);
 
       let appliedCount = 0;
       predictions.forEach((pred) => {
         if (pred.value === '' || pred.value == null) return;
-        if (skipFileFields && pred.filePayload) return;
         const el = findPredictionElement(pred);
         if (el && el instanceof HTMLElement) {
           const success = SyntheticEventDispatcher.setInputValue(el, pred.value, pred.filePayload);

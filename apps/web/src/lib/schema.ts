@@ -51,6 +51,9 @@ export async function ensureDatabaseSchema(pool: Pool): Promise<void> {
     `ALTER TABLE reminders ADD COLUMN IF NOT EXISTS execution_log TEXT`,
     `ALTER TABLE reminders ADD COLUMN IF NOT EXISTS executed_at TIMESTAMP WITH TIME ZONE`,
     `ALTER TABLE form_history ADD COLUMN IF NOT EXISTS is_submitted BOOLEAN NOT NULL DEFAULT false`,
+    `ALTER TABLE document_jobs ALTER COLUMN title TYPE TEXT`,
+    `ALTER TABLE document_jobs ALTER COLUMN company TYPE TEXT`,
+    `ALTER TABLE document_jobs ALTER COLUMN role TYPE TEXT`,
   ];
   for (const sql of alters) {
     await pool.query(sql);

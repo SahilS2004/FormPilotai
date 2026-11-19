@@ -140,6 +140,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'API_FETCH') {
+    const path = typeof message.path === 'string' ? message.path : '';
+    if (!path.startsWith('/api/') || path.includes('..')) {
+      sendResponse({ error: true, message: 'Unsupported API path' });
+      return false;
+    }
+    (async () => {
+      try {
+        const res = await apiFetch(path, {
+          method: typeof message.method === 'string' ? message.method : 'GET',
+          headers: message.headers && typeof message.headers === 'object' ? message.headers : undefined,
+          body: typeof message.body === 'string' ? message.body : undefined,
+        });
+        const body = await res.text();
+        const headers: Record<string, string> = {};
+        const contentType = res.headers.get('content-type');
+        if (contentType) headers['content-type'] = contentType;
+        sendResponse({
+          status: res.status,
+          statusText: res.statusText,
+          headers,
+          body,
+        });
+      } catch (error) {
+        sendResponse({
+          error: true,
+          message: error instanceof Error ? error.message : 'Failed to fetch',
+        });
+      }
+    })();
+    return true;
+  }
+
   if (message.type === 'SYNC_DOCUMENTS') {
     (async () => {
       try {

@@ -72,21 +72,27 @@ export class SyntheticEventDispatcher {
       }
 
       if (element.type === 'radio') {
-        const strVal = String(value);
-        const matches = element.value === strVal
-          || strVal === 'true'
-          || element.value.toLowerCase() === strVal.toLowerCase();
-        if (!matches) {
+        const strVal = String(value).trim().toLowerCase();
+        const group = element.name
+          ? Array.from(document.querySelectorAll<HTMLInputElement>(`input[type="radio"][name="${CSS.escape(element.name)}"]`))
+          : [element];
+        const match = group.find((radio) => {
+          const label = (radio.closest('label')?.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
+          const radioValue = radio.value.trim().toLowerCase();
+          if (strVal === 'true') return radio === element;
+          return radioValue === strVal || label === strVal;
+        });
+        if (!match) {
           element.blur();
           return false;
         }
-        if (!element.checked) {
-          const label = element.closest('label');
+        if (!match.checked) {
+          const label = match.closest('label');
           if (label instanceof HTMLElement) label.click();
-          else element.click();
+          else match.click();
         }
-        element.blur();
-        return element.checked;
+        match.blur();
+        return match.checked;
       }
 
       // Normal text/number/email/date/tel input

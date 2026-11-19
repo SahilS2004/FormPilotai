@@ -18,6 +18,54 @@ export async function apiUrl(path: string): Promise<string> {
   return `${base}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+function isContentScript(): boolean {
+  try {
+    return location.protocol === 'http:' || location.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function headersToRecord(headers?: HeadersInit): Record<string, string> {
+  const record: Record<string, string> = {};
+  if (!headers) return record;
+  new Headers(headers).forEach((value, key) => {
+    record[key] = value;
+  });
+  return record;
+}
+
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  // Content scripts share the form page's origin, so a direct call to the API
+  // is blocked (the page shows "Failed to fetch"). The service worker is allowed.
+  if (isContentScript()) {
+    let payload: {
+      error?: boolean;
+      message?: string;
+      status?: number;
+      statusText?: string;
+      headers?: Record<string, string>;
+      body?: string;
+    };
+    try {
+      payload = await chrome.runtime.sendMessage({
+        type: 'API_FETCH',
+        path,
+        method: init?.method || 'GET',
+        headers: headersToRecord(init?.headers),
+        body: typeof init?.body === 'string' ? init.body : undefined,
+      });
+    } catch (error) {
+      throw new TypeError(error instanceof Error ? error.message : 'Failed to fetch');
+    }
+    if (!payload || payload.error) {
+      throw new TypeError(payload?.message || 'Failed to fetch');
+    }
+    return new Response(payload.body ?? '', {
+      status: payload.status ?? 500,
+      statusText: payload.statusText || '',
+      headers: payload.headers,
+    });
+  }
   return fetch(await apiUrl(path), init);
 }

@@ -26,6 +26,21 @@ function mapRow(row: Record<string, unknown>): DocumentJob {
   };
 }
 
+/** A page dump is not a job title. Keep one line such as "Full-Stack Developer Intern". */
+function roleForJob(role: string, heading: string): string {
+  const clean = role.replace(/\s+/g, ' ').trim();
+  if (clean && clean.length <= 180 && !clean.includes('----')) return clean;
+  const lines = `${role}\n${heading}`
+    .split('\n')
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter((line) => line.length > 1 && !/^[-–—\s]+$/.test(line));
+  const specific = lines.find((line) => (
+    line.length <= 180
+    && /intern|developer|engineer|designer|manager|analyst|consultant|specialist|founder|officer/i.test(line)
+  ));
+  return (specific || lines.find((line) => line.length <= 140) || lines[0] || '').slice(0, 180);
+}
+
 export async function createDocumentJob(input: {
   docType: DocumentJobDocType;
   title: string;
@@ -43,7 +58,7 @@ export async function createDocumentJob(input: {
     docType: input.docType || 'cover_letter',
     title: input.title.trim() || 'Cover Letter',
     company: (input.company || '').trim(),
-    role: (input.role || '').trim(),
+    role: roleForJob(input.role || '', input.formHeading || ''),
     formHeading: (input.formHeading || '').trim(),
     formUrl: (input.formUrl || '').trim(),
     tone: input.tone || 'professional',

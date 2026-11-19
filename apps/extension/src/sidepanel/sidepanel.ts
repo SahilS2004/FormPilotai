@@ -290,7 +290,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           payload: {
             predictions,
             showHeatmap: toggleHeatmap?.checked ?? false,
-            skipFileFields: generatableGaps.length > 0,
           }
         });
         totalApplied += applyRes?.appliedCount || 0;
