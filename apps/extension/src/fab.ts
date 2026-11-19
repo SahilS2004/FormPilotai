@@ -131,8 +131,13 @@ export function mountFloatingButton() {
     button.classList.remove('dragging');
     if (!moved) {
       chrome.runtime.sendMessage({ type: 'TOGGLE_SIDE_PANEL' }, (response) => {
-        const open = Boolean(response?.open);
-        setOpenState(button, open);
+        void chrome.runtime.lastError;
+        if (response?.ok) {
+          setOpenState(button, Boolean(response.open));
+          return;
+        }
+        // Keep the button usable even if Chrome reports the panel state wrong.
+        setOpenState(button, !button.dataset.open || button.dataset.open === '0');
       });
       return;
     }

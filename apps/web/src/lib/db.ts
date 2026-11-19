@@ -483,6 +483,30 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
   }));
 }
 
+export async function markNotificationRead(id: string): Promise<AppNotification | null> {
+  const active = await withDatabase();
+  if (!active) {
+    const row = notificationStore.find((item) => item.id === id);
+    if (!row) return null;
+    row.isRead = true;
+    return row;
+  }
+  const res = await active.query(
+    `UPDATE notifications
+     SET is_read = true
+     WHERE id = $1
+     RETURNING id, reminder_id as "reminderId", title, body, href, is_read as "isRead", created_at as "createdAt"`,
+    [id]
+  );
+  const row = res.rows[0];
+  if (!row) return null;
+  return {
+    ...row,
+    isRead: Boolean(row.isRead),
+    createdAt: new Date(row.createdAt).toISOString(),
+  };
+}
+
 export async function claimDueReminders(): Promise<FormReminder[]> {
   const active = await withDatabase();
   const now = Date.now();

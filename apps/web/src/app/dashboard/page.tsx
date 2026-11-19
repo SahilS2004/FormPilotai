@@ -225,7 +225,7 @@ export default function DashboardPage() {
   const [reminderPolicy, setReminderPolicy] = useState<'notify_only' | 'auto_fill_draft' | 'auto_submit'>('notify_only');
   const [reminderWindowMinutes, setReminderWindowMinutes] = useState(15);
   const [reminderConfidence, setReminderConfidence] = useState(0.85);
-  const [reminderNotice, setReminderNotice] = useState<{ title: string; body: string; href?: string } | null>(null);
+  const [reminderNotice, setReminderNotice] = useState<{ id?: string; title: string; body: string; href?: string } | null>(null);
   const [reminderIntent, setReminderIntent] = useState<'deadline' | 'status_check'>('deadline');
 
   // State for Bulk Job
@@ -274,9 +274,13 @@ export default function DashboardPage() {
         const noticeData = await noticeRes.json();
         if (stopped) return;
         if (Array.isArray(reminderData.reminders)) setReminders(reminderData.reminders);
-        const latest = Array.isArray(noticeData.notifications) ? noticeData.notifications[0] : null;
+        const latest = Array.isArray(noticeData.notifications)
+          ? noticeData.notifications.find((item: { isRead?: boolean }) => !item.isRead) || null
+          : null;
         if (latest && !latest.isRead) {
-          setReminderNotice({ title: latest.title, body: latest.body, href: latest.href });
+          setReminderNotice({ id: latest.id, title: latest.title, body: latest.body, href: latest.href });
+        } else {
+          setReminderNotice(null);
         }
       } catch {
         // The scheduler retries on the next poll.
@@ -1466,21 +1470,49 @@ export default function DashboardPage() {
       )}
 
       {reminderNotice && (
-        <div className="fixed bottom-5 right-5 z-40 w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-xl p-4 space-y-2">
+        <div className="fixed bottom-5 right-5 z-40 w-full max-w-sm rounded-2xl border border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-xl p-4 space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-sm font-bold text-navy-800 dark:text-white">{reminderNotice.title}</p>
               <p className="text-xs text-slate-500 dark:text-slate-300 mt-1 leading-relaxed">{reminderNotice.body}</p>
             </div>
-            <button type="button" onClick={() => setReminderNotice(null)} className="text-slate-400 hover:text-slate-700" aria-label="Dismiss notification">
-              <X size={16} />
-            </button>
           </div>
-          {reminderNotice.href && (
-            <a href={reminderNotice.href} target="_blank" rel="noreferrer" className="text-xs font-semibold text-cyan-700 dark:text-cyan-300 hover:underline">
-              Open form
-            </a>
-          )}
+          <div className="flex items-center gap-3">
+            {reminderNotice.href && (
+              <a href={reminderNotice.href} target="_blank" rel="noreferrer" className="text-xs font-semibold text-cyan-700 dark:text-cyan-300 hover:underline">
+                Open form
+              </a>
+            )}
+            {reminderNotice.id ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  const id = reminderNotice.id;
+                  setReminderNotice(null);
+                  try {
+                    await fetch('/api/notifications', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ id, isRead: true }),
+                    });
+                  } catch {
+                    // Next poll will show it again if the mark-read call failed.
+                  }
+                }}
+                className="ml-auto rounded-lg bg-navy-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-navy-700 dark:bg-cyan-700 dark:hover:bg-cyan-600"
+              >
+                Mark as read
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setReminderNotice(null)}
+                className="ml-auto rounded-lg bg-navy-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-navy-700 dark:bg-cyan-700 dark:hover:bg-cyan-600"
+              >
+                Dismiss
+              </button>
+            )}
+          </div>
         </div>
       )}
 

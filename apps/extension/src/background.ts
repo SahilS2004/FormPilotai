@@ -7,18 +7,31 @@
 import { runActionableReminders } from './reminder-runner';
 import { apiFetch } from './api';
 
-// Enable opening side panel on extension icon click
-chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create('formpilot-reminders', { periodInMinutes: 1 });
-  if (chrome.sidePanel && chrome.sidePanel.setPanelBehavior) {
+/** Tabs where the side panel is currently open. In-memory so a stale storage flag cannot block open. */
+const openPanelTabs = new Set<number>();
+
+function enableSidePanelDefaults() {
+  if (!chrome.sidePanel) return;
+  chrome.sidePanel.setOptions({
+    path: 'sidepanel/sidepanel.html',
+    enabled: true,
+  }).catch(() => {});
+  if (chrome.sidePanel.setPanelBehavior) {
     chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((err) => {
       console.warn('Failed to set side panel behavior:', err);
     });
   }
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create('formpilot-reminders', { periodInMinutes: 1 });
+  enableSidePanelDefaults();
+  chrome.storage.local.set({ formpilot_panel_open: false }).catch(() => {});
 });
 
 chrome.runtime.onStartup.addListener(() => {
   chrome.alarms.create('formpilot-reminders', { periodInMinutes: 1 });
+  enableSidePanelDefaults();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -27,69 +40,98 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-async function openSidePanelForTab(tabId: number): Promise<void> {
-  if (!chrome.sidePanel?.open) {
-    throw new Error('Side panel is not available in this Chrome build.');
-  }
-  await chrome.sidePanel.setOptions({
-    tabId,
-    path: 'sidepanel/sidepanel.html',
-    enabled: true,
-  });
-  await chrome.sidePanel.open({ tabId });
-  await chrome.storage.local.set({ formpilot_panel_open: true });
-}
+enableSidePanelDefaults();
 
-async function closeSidePanelForTab(tabId: number): Promise<void> {
+function closeSidePanelForTab(tabId: number): Promise<void> {
   const sidePanel = chrome.sidePanel as typeof chrome.sidePanel & {
     close?: (options: { tabId: number }) => Promise<void>;
   };
   if (typeof sidePanel.close === 'function') {
-    await sidePanel.close({ tabId });
-  } else {
-    // Older Chrome: briefly disable the panel for this tab to dismiss it.
-    await sidePanel.setOptions({ tabId, enabled: false });
-    await sidePanel.setOptions({
+    return sidePanel.close({ tabId }).then(() => {
+      openPanelTabs.delete(tabId);
+      void chrome.storage.local.set({ formpilot_panel_open: false });
+    });
+  }
+  // Older Chrome: disable then re-enable so the next open works.
+  return sidePanel.setOptions({ tabId, enabled: false }).then(() =>
+    sidePanel.setOptions({
       tabId,
       path: 'sidepanel/sidepanel.html',
       enabled: true,
-    });
-  }
-  await chrome.storage.local.set({ formpilot_panel_open: false });
+    })
+  ).then(() => {
+    openPanelTabs.delete(tabId);
+    void chrome.storage.local.set({ formpilot_panel_open: false });
+  });
 }
 
-// Relay messages between Side Panel, Content Scripts, and Backend API
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || !message.type) return false;
 
   if (message.type === 'OPEN_SIDE_PANEL' || message.type === 'TOGGLE_SIDE_PANEL') {
     const tabId = sender.tab?.id;
     const toggle = message.type === 'TOGGLE_SIDE_PANEL';
-    (async () => {
-      if (tabId == null) {
-        sendResponse({ ok: false, open: false, error: 'No tab available for the side panel' });
-        return;
-      }
 
-      const stored = await chrome.storage.local.get('formpilot_panel_open');
-      const isOpen = Boolean(stored.formpilot_panel_open);
+    if (tabId == null) {
+      sendResponse({ ok: false, open: false, error: 'No tab available for the side panel' });
+      return false;
+    }
 
-      if (toggle && isOpen) {
-        await closeSidePanelForTab(tabId);
-        sendResponse({ ok: true, open: false, mode: 'sidepanel' });
-        return;
-      }
+    if (!chrome.sidePanel?.open) {
+      sendResponse({ ok: false, open: false, error: 'Side panel is not available in this Chrome build.' });
+      return false;
+    }
 
-      await openSidePanelForTab(tabId);
-      sendResponse({ ok: true, open: true, mode: 'sidepanel' });
-    })().catch((err) => {
-      sendResponse({ ok: false, open: false, error: err?.message || 'Could not open FormPilot' });
-    });
+    const isOpen = openPanelTabs.has(tabId);
+
+    if (toggle && isOpen) {
+      closeSidePanelForTab(tabId)
+        .then(() => sendResponse({ ok: true, open: false, mode: 'sidepanel' }))
+        .catch((err) => {
+          openPanelTabs.delete(tabId);
+          sendResponse({ ok: false, open: false, error: err?.message || 'Could not close FormPilot' });
+        });
+      return true;
+    }
+
+    // sidePanel.open must run in the same turn as the user gesture — no await before this.
+    const openResult = chrome.sidePanel.open({ tabId });
+    Promise.resolve(openResult)
+      .then(() => {
+        openPanelTabs.add(tabId);
+        void chrome.storage.local.set({ formpilot_panel_open: true });
+        sendResponse({ ok: true, open: true, mode: 'sidepanel' });
+      })
+      .catch((err) => {
+        // If open failed because the panel was disabled for this tab, re-enable and retry once.
+        chrome.sidePanel.setOptions({
+          tabId,
+          path: 'sidepanel/sidepanel.html',
+          enabled: true,
+        }).then(() => chrome.sidePanel.open({ tabId })).then(() => {
+          openPanelTabs.add(tabId);
+          void chrome.storage.local.set({ formpilot_panel_open: true });
+          sendResponse({ ok: true, open: true, mode: 'sidepanel' });
+        }).catch((retryErr) => {
+          sendResponse({
+            ok: false,
+            open: false,
+            error: retryErr?.message || err?.message || 'Could not open FormPilot',
+          });
+        });
+      });
     return true;
   }
 
   if (message.type === 'SIDE_PANEL_STATE') {
     const open = Boolean(message.payload?.open);
+    const tabId = sender.tab?.id;
+    if (typeof tabId === 'number') {
+      if (open) openPanelTabs.add(tabId);
+      else openPanelTabs.delete(tabId);
+    } else if (!open) {
+      openPanelTabs.clear();
+    }
     chrome.storage.local.set({ formpilot_panel_open: open }).then(() => {
       sendResponse({ ok: true, open });
     }).catch((err) => {
@@ -98,7 +140,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // 1. Sync Documents
   if (message.type === 'SYNC_DOCUMENTS') {
     (async () => {
       try {
@@ -112,10 +153,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, error: err.message || 'Failed to sync documents' });
       }
     })();
-    return true; // Keep channel open for async response
+    return true;
   }
 
-  // 2. Submit Form Fill
   if (message.type === 'SUBMIT_FORM_FILL') {
     (async () => {
       try {
@@ -129,13 +169,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true, ...data });
       } catch (err: any) {
         console.error('SUBMIT_FORM_FILL failed:', err);
-        sendResponse({ success: false, error: err.message || 'Failed to reason predictions' });
+        sendResponse({ success: false, error: err.message || 'Failed to submit form fill' });
       }
     })();
-    return true; // Keep channel open for async response
+    return true;
   }
 
-  // 3. Record a form only after the person submits it
   if (message.type === 'FORM_SUBMITTED') {
     (async () => {
       try {
@@ -154,7 +193,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // 4. Record Submission History
   if (message.type === 'RECORD_SUBMISSION') {
     (async () => {
       try {
@@ -169,9 +207,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, error: err.message || 'Failed to record submission' });
       }
     })();
-    return true; // Keep channel open for async response
+    return true;
   }
 
-  // Any other message (e.g. MICRO_PROMPT_TRIGGERED or internal events)
   return false;
 });
