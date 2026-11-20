@@ -380,9 +380,8 @@ function predictionsFromModel(
     }];
   }
 
-  const wanted = new Set(value.split('|').map((part) => optionKey(part)).filter(Boolean));
   const options = unit.question.options || [];
-  const winners = options.filter((option) => wanted.has(optionKey(option.value || '')) || wanted.has(optionKey(option.label)));
+  const winners = matchOptions(value, options);
   if (winners.length === 0) return null;
   if (unit.members.length === 1) {
     const winner = winners[0];
@@ -414,6 +413,37 @@ function predictionsFromModel(
 
 function optionKey(value: string): string {
   return value.toLowerCase().replace(/[–—-]/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function labeledYears(text: string): number | null {
+  const match = text.match(/(?:years?\s+of\s+experience|relevant\s+experience)\D{0,24}(\d+(?:\.\d+)?)/i)
+    || text.match(/(\d+(?:\.\d+)?)\s*\+?\s*years?\s+of\s+experience/i);
+  return match ? Number(match[1]) : null;
+}
+
+function statedYears(text: string): number | null {
+  return labeledYears(text) ?? (() => {
+    const direct = text.match(/(\d+(?:\.\d+)?)\s*\+?\s*years?\b/i);
+    return direct ? Number(direct[1]) : null;
+  })();
+}
+
+function matchOptions(value: string, options: NonNullable<FormField['options']>) {
+  const wanted = new Set(value.split('|').map((part) => optionKey(part)).filter(Boolean));
+  const exact = options.filter((option) => wanted.has(optionKey(option.value || '')) || wanted.has(optionKey(option.label)));
+  if (exact.length > 0) return exact;
+  const years = statedYears(value);
+  if (years != null) {
+    const picked = pickYearOption(options, years);
+    if (picked.length > 0) return picked;
+  }
+  const loose = optionKey(value).replace(/\bto\b/g, ' ').replace(/\s+/g, ' ').trim();
+  if (loose.length < 3 || !/[a-z]/.test(loose)) return [];
+  const fuzzy = options.filter((option) => {
+    const key = optionKey(option.value || option.label);
+    return key.length > 0 && (loose === key || loose.includes(key) || key.includes(loose));
+  });
+  return fuzzy.length === 1 ? fuzzy : [];
 }
 
 function choiceQuestion(labels: string[]): string {
@@ -454,6 +484,10 @@ function answerChoice(unit: ChoiceUnit, chunks: VectorDocumentChunk[]): Predicte
   } : undefined;
   const years = experienceYears(text);
   let selected = unit.multiple ? [] : pickYearOption(options, years);
+  if (selected.length === 0 && /experience|fresher|years?/i.test(`${unit.question.label || ''} ${unit.question.placeholder || ''}`)) {
+    const stated = labeledYears(text);
+    if (stated != null) selected = unit.multiple ? [] : pickYearOption(options, stated);
+  }
 
   if (selected.length === 0) {
     const scored = options
