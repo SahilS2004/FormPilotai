@@ -380,9 +380,9 @@ function predictionsFromModel(
     }];
   }
 
-  const wanted = new Set(value.split('|').map((part) => part.trim().toLowerCase()).filter(Boolean));
+  const wanted = new Set(value.split('|').map((part) => optionKey(part)).filter(Boolean));
   const options = unit.question.options || [];
-  const winners = options.filter((option) => wanted.has((option.value || '').toLowerCase()) || wanted.has(option.label.toLowerCase()));
+  const winners = options.filter((option) => wanted.has(optionKey(option.value || '')) || wanted.has(optionKey(option.label)));
   if (winners.length === 0) return null;
   if (unit.members.length === 1) {
     const winner = winners[0];
@@ -410,6 +410,10 @@ function predictionsFromModel(
       citation: winner ? citation : undefined,
     };
   });
+}
+
+function optionKey(value: string): string {
+  return value.toLowerCase().replace(/[–—-]/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
 function choiceQuestion(labels: string[]): string {
@@ -681,8 +685,51 @@ async function decideFileUpload(field: FormField, schema: FormSchema, catalog: F
     return { action: 'leave_empty', docType, title, reason };
   } catch (error) {
     console.warn('[fill] upload decision failed', error);
-    return { action: 'leave_empty', docType: 'other', title: fallbackTitle, reason: 'Could not decide which file fits this upload.' };
+    return fallbackFileDecision(field, schema, catalog);
   }
+}
+
+function fallbackFileDecision(field: FormField, schema: FormSchema, catalog: FileCatalogItem[]): UploadDecision {
+  const label = `${field.label || ''} ${field.name || ''}`.toLowerCase();
+  const heading = (schema.title || '').toLowerCase();
+  const blob = (item: FileCatalogItem) => `${item.doc.name} ${item.doc.description || ''}`.toLowerCase();
+  const title = field.label || 'Document';
+  if (/resume|curriculum|\bcv\b/.test(label)) {
+    const resumes = catalog.filter((item) => /resume|\bcv\b/.test(blob(item)));
+    const dev = /developer|engineer|sde|intern|software/.test(heading)
+      ? resumes.find((item) => /dev|sde|software|engineer/.test(blob(item)))
+      : undefined;
+    const chosen = dev || resumes[0];
+    if (chosen) {
+      return {
+        action: 'use_existing',
+        documentId: chosen.doc.id,
+        docType: 'other',
+        title,
+        reason: `Using ${chosen.doc.name} because it is a resume.`,
+      };
+    }
+  }
+  if (/cover letter|motivation|proposal|statement of purpose|personal statement/.test(label)) {
+    const saved = catalog.find((item) => /cover letter|proposal|personal statement|motivation/.test(blob(item)));
+    if (saved) {
+      return {
+        action: 'use_existing',
+        documentId: saved.doc.id,
+        docType: /proposal/.test(label) ? 'proposal' : 'cover_letter',
+        title,
+        reason: `Using ${saved.doc.name}.`,
+      };
+    }
+    const proposal = /proposal/.test(label);
+    return {
+      action: 'generate',
+      docType: proposal ? 'proposal' : 'cover_letter',
+      title: proposal ? 'Proposal' : 'Cover Letter',
+      reason: 'No saved file matches, so this document can be generated.',
+    };
+  }
+  return { action: 'leave_empty', docType: 'other', title, reason: 'Could not decide which file fits this upload.' };
 }
 
 function chooseLink(links: DocumentLink[], field: FormField, schema: FormSchema): DocumentLink | null {
