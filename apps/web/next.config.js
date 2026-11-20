@@ -8,6 +8,17 @@ const nextConfig = (phase) => {
     transpilePackages: ['@formpilot/shared', '@formpilot/context-engine', '@formpilot/dom-analyzer'],
     reactStrictMode: true,
     distDir: isDev ? '.next-dev' : '.next',
+    experimental: {
+      instrumentationHook: true,
+      serverComponentsExternalPackages: [
+        '@xenova/transformers',
+        'onnxruntime-node',
+        'sharp',
+        'unpdf',
+        'mammoth',
+        'jszip',
+      ],
+    },
   };
 };
 

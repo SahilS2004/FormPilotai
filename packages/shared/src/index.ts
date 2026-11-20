@@ -20,6 +20,9 @@ export interface AgentPromptConfig {
   userContext?: string;        // Specific background info/persona
 }
 
+export type KBSourceType = 'file' | 'snippet' | 'website' | 'history';
+export type KBIndexStatus = 'pending' | 'indexed' | 'failed';
+
 export interface KBDocument {
   id: string;
   name: string;
@@ -30,6 +33,13 @@ export interface KBDocument {
   isEnabled: boolean;          // Active scope toggle for form filling
   createdAt: string;
   updatedAt: string;
+  s3Bucket?: string;
+  s3Key?: string;
+  storageDriver?: 's3' | 'disk';
+  sourceType?: KBSourceType;
+  sourceUrl?: string;
+  indexStatus?: KBIndexStatus;
+  chunkCount?: number;
 }
 
 // ==========================================
@@ -52,6 +62,7 @@ export type FormFieldType =
 export interface FormFieldOption {
   label: string;
   value: string;
+  selector?: string;
 }
 
 export interface FormField {
@@ -105,14 +116,42 @@ export interface CitationReference {
   excerpt?: string;
 }
 
+export interface FileAttachmentPayload {
+  fileName: string;
+  mimeType: string;
+  fileBase64?: string;
+  textContent?: string;
+  documentId?: string;
+}
+
+export interface VectorDocumentChunk {
+  id: string;
+  documentId: string;
+  documentName: string;
+  chunkIndex: number;
+  content: string;
+  metadata: {
+    docType?: string;
+    originalFilename?: string;
+    mimeType?: string;
+    tags?: string[];
+    [key: string]: any;
+  };
+  embedding?: number[];
+  similarity?: number;
+}
+
 export interface PredictedFieldValue {
   fieldId: string;
+  selector?: string;
+  placeholder?: string;
   value: string | boolean | string[];
   confidence: number;                  // 0.0 to 1.0
   confidenceLevel: FieldConfidenceLevel; // 'high' (>=0.9), 'medium' (0.5-0.89), 'low' (<0.5)
   rationale?: string;
   citation?: CitationReference;
   missingDocHint?: string;             // Prompt user to upload missing document if confidence is low
+  filePayload?: FileAttachmentPayload; // Programmatic file attachment for <input type="file">
 }
 
 // ==========================================

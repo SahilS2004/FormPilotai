@@ -2,6 +2,7 @@
 -- Automatically executed on Docker container startup via /docker-entrypoint-initdb.d/
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- 1. Users Table
 CREATE TABLE IF NOT EXISTS users (
@@ -23,9 +24,30 @@ CREATE TABLE IF NOT EXISTS documents (
     description TEXT NOT NULL,
     is_enabled BOOLEAN DEFAULT true,
     content_text TEXT,
+    file_data_base64 TEXT,
+    s3_bucket VARCHAR(128),
+    s3_key TEXT,
+    source_type VARCHAR(32) DEFAULT 'file',
+    source_url TEXT,
+    index_status VARCHAR(32) DEFAULT 'pending',
+    chunk_count INT DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 2b. Vector DB Document Chunks for Semantic RAG Reasoning
+CREATE TABLE IF NOT EXISTS document_chunks (
+    id VARCHAR(64) PRIMARY KEY,
+    document_id VARCHAR(64) REFERENCES documents(id) ON DELETE CASCADE,
+    document_name VARCHAR(255) NOT NULL,
+    chunk_index INT NOT NULL,
+    content TEXT NOT NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    embedding vector(384),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS document_chunks_doc_idx ON document_chunks(document_id);
 
 -- 3. Website Form Reminders & Autonomous Action Policies
 CREATE TABLE IF NOT EXISTS reminders (
@@ -40,8 +62,20 @@ CREATE TABLE IF NOT EXISTS reminders (
     status VARCHAR(64) DEFAULT 'pending',                -- pending, user_reviewed, auto_action_in_progress, auto_completed, failed
     tone VARCHAR(64) DEFAULT 'professional',
     notes TEXT,
+    execution_log TEXT,
+    executed_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id VARCHAR(64) PRIMARY KEY,
+    reminder_id VARCHAR(64),
+    title VARCHAR(255) NOT NULL,
+    body TEXT NOT NULL,
+    href TEXT,
+    is_read BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 4. Bulk Multi-Site Form Jobs
@@ -84,6 +118,7 @@ CREATE TABLE IF NOT EXISTS form_history (
     total_fields_count INT NOT NULL,
     filled_fields_count INT NOT NULL,
     was_auto_submitted BOOLEAN DEFAULT false,
+    is_submitted BOOLEAN NOT NULL DEFAULT false,
     fields_payload JSONB NOT NULL DEFAULT '[]'::jsonb
 );
 

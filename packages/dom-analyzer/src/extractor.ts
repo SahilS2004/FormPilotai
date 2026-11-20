@@ -15,24 +15,28 @@ export class DomFormExtractor {
       'input, textarea, select, [role="combobox"], [role="listbox"], [contenteditable="true"]'
     );
 
+    const drafts: Array<{ field: FormField; element: HTMLElement }> = [];
     let counter = 0;
     elements.forEach((el) => {
       // Ignore hidden or non-interactive inputs
       if (this.isIgnoredElement(el)) return;
 
       const field = this.parseElementToField(el, counter++);
-      if (field) {
-        fields.push(field);
-      }
+      if (field) drafts.push({ field, element: el });
     });
+    fields.push(...this.collapseChoiceGroups(drafts));
 
     const stepInfo = this.detectStepInfo(documentRef);
+
+    const heading = documentRef.querySelector('h1')?.textContent?.trim() || '';
+    const blurb = documentRef.querySelector('h1')?.parentElement?.innerText?.trim() || '';
+    const title = [heading, blurb, documentRef.title].filter(Boolean).join('\n').slice(0, 700) || 'Web Form';
 
     return {
       id: `form_${Date.now()}`,
       domain: window.location.hostname,
       url: window.location.href,
-      title: documentRef.title || 'Web Form',
+      title,
       fields,
       detectedAt: new Date().toISOString(),
       stepInfo
@@ -203,27 +207,45 @@ export class DomFormExtractor {
    * Generates a stable CSS selector
    */
   public static generateUniqueSelector(el: HTMLElement): string {
-    if (el.id) return `#${CSS.escape(el.id)}`;
-    if (el.getAttribute('name')) {
-      const name = el.getAttribute('name')!;
-      return `${el.tagName.toLowerCase()}[name="${CSS.escape(name)}"]`;
+    if (el.id) {
+      const byId = `#${CSS.escape(el.id)}`;
+      if (document.querySelectorAll(byId).length === 1) return byId;
     }
 
-    // Path fallback
-    const path: string[] = [];
+    const name = el.getAttribute('name');
+    if (name) {
+      const byName = `${el.tagName.toLowerCase()}[name="${CSS.escape(name)}"]`;
+      if (document.querySelectorAll(byName).length === 1) return byName;
+    }
+
+    const placeholder = el.getAttribute('placeholder');
+    if (placeholder) {
+      const byPlaceholder = `${el.tagName.toLowerCase()}[placeholder="${CSS.escape(placeholder)}"]`;
+      if (document.querySelectorAll(byPlaceholder).length === 1) return byPlaceholder;
+    }
+
+    const parts: string[] = [];
     let current: HTMLElement | null = el;
-    while (current && current.nodeType === Node.ELEMENT_NODE && current !== document.body) {
-      let selector = current.tagName.toLowerCase();
-      if (current.className && typeof current.className === 'string') {
-        const firstClass = current.className.trim().split(/\s+/)[0];
-        if (firstClass && !firstClass.includes(':')) {
-          selector += `.${CSS.escape(firstClass)}`;
+    while (current && current !== document.body && current !== document.documentElement) {
+      let part = current.tagName.toLowerCase();
+      if (current.id) {
+        parts.unshift(`#${CSS.escape(current.id)}`);
+        break;
+      }
+      const parent = current.parentElement;
+      if (parent) {
+        const siblings = Array.from(parent.children).filter((child) => child.tagName === current!.tagName);
+        if (siblings.length > 1) {
+          part += `:nth-of-type(${siblings.indexOf(current) + 1})`;
         }
       }
-      path.unshift(selector);
+      parts.unshift(part);
+      if (document.querySelectorAll(parts.join(' > ')).length === 1) {
+        return parts.join(' > ');
+      }
       current = current.parentElement;
     }
-    return path.join(' > ');
+    return parts.join(' > ');
   }
 
   /**
@@ -272,5 +294,95 @@ export class DomFormExtractor {
     }
 
     return undefined;
+  }
+
+  /**
+   * Radios and checkbox sets that share a name are one question with several options.
+   */
+  private static collapseChoiceGroups(
+    drafts: Array<{ field: FormField; element: HTMLElement }>
+  ): FormField[] {
+    const used = new Set<HTMLElement>();
+    const fields: FormField[] = [];
+
+    for (const draft of drafts) {
+      if (used.has(draft.element)) continue;
+      const { field, element } = draft;
+      const groupable = (field.type === 'radio' || field.type === 'checkbox') && field.name;
+      const members = groupable
+        ? drafts.filter((item) => item.field.type === field.type && item.field.name === field.name)
+        : [draft];
+
+      if (members.length > 1) {
+        members.forEach((item) => used.add(item.element));
+        const optionLabels = members.map((item) => item.field.label).filter(Boolean);
+        const question = this.resolveGroupQuestion(element, optionLabels);
+        fields.push({
+          ...members[0].field,
+          selector: members[0].field.selector,
+          label: question || members[0].field.label,
+          options: members.map((item) => ({
+            label: item.field.label,
+            value: this.choiceValue(item.element, item.field.label),
+            selector: this.choiceSelector(item.element),
+          })),
+        });
+        continue;
+      }
+
+      used.add(element);
+      fields.push(field);
+    }
+
+    return fields;
+  }
+
+  private static choiceValue(el: HTMLElement, label: string): string {
+    if (el instanceof HTMLInputElement) {
+      const value = el.value.trim();
+      if (value && value.toLowerCase() !== 'on') return value;
+    }
+    return label;
+  }
+
+  private static choiceSelector(el: HTMLElement): string {
+    if (el instanceof HTMLInputElement) {
+      const name = el.getAttribute('name');
+      const value = el.value.trim();
+      if (name && value && value.toLowerCase() !== 'on') {
+        const selector = `input[type="${el.type}"][name="${CSS.escape(name)}"][value="${CSS.escape(value)}"]`;
+        if (document.querySelectorAll(selector).length === 1) return selector;
+      }
+    }
+    return this.generateUniqueSelector(el);
+  }
+
+  private static resolveGroupQuestion(el: HTMLElement, optionLabels: string[]): string {
+    const group = el.closest('fieldset, [role="radiogroup"], [role="group"]')
+      || el.closest('[class*="fieldGroup"], [class*="field-group"], [class*="form-group"]');
+    const candidates: Element[] = [];
+    if (group) {
+      const legend = group.querySelector('legend');
+      if (legend) candidates.push(legend);
+      Array.from(group.children).forEach((child) => {
+        if (child.contains(el)) return;
+        candidates.push(child);
+      });
+    }
+    let node: HTMLElement | null = el.parentElement;
+    for (let depth = 0; depth < 4 && node; depth += 1) {
+      if (node.previousElementSibling) candidates.push(node.previousElementSibling);
+      node = node.parentElement;
+    }
+
+    const optionText = new Set(optionLabels.map((label) => label.toLowerCase()));
+    for (const candidate of candidates) {
+      const text = this.cleanLabel(candidate.textContent || '');
+      if (!text || text.length > 180) continue;
+      if (optionText.has(text.toLowerCase())) continue;
+      if (optionLabels.length > 1 && optionLabels.every((label) => text.includes(label))) continue;
+      return text;
+    }
+    return '';
   }
 }

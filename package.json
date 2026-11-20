@@ -2,6 +2,9 @@
   "name": "formpilotai",
   "version": "0.1.0",
   "packageManager": "pnpm@10.27.0",
+  "pnpm": {
+    "onlyBuiltDependencies": ["sharp", "protobufjs"]
+  },
   "private": true,
   "description": "Context-Aware AI Form Filler & Document Reasoning Copilot",
   "scripts": {
