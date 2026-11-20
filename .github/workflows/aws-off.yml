@@ -47,7 +47,29 @@ jobs:
             --output text)"
           echo "Database $DB is $STATUS"
           if [ "$STATUS" = "available" ]; then
-            aws rds stop-db-instance --db-instance-identifier "$DB"
-            aws rds wait db-instance-stopped --db-instance-identifier "$DB"
+            aws rds stop-db-instance --db-instance-identifier "$DB" >/dev/null
+            STATUS="stopping"
+          fi
+          # The AWS CLI has no db-instance-stopped waiter.
+          for _ in $(seq 1 40); do
+            if [ "$STATUS" = "stopped" ]; then
+              break
+            fi
+            case "$STATUS" in
+              stopping|available) sleep 30 ;;
+              *)
+                echo "Database did not stop. Status is $STATUS" >&2
+                exit 1
+                ;;
+            esac
+            STATUS="$(aws rds describe-db-instances \
+              --db-instance-identifier "$DB" \
+              --query 'DBInstances[0].DBInstanceStatus' \
+              --output text)"
+            echo "Database $DB is $STATUS"
+          done
+          if [ "$STATUS" != "stopped" ]; then
+            echo "Database did not stop within 20 minutes." >&2
+            exit 1
           fi
           echo "Web tasks are at 0 and the database is stopped."
