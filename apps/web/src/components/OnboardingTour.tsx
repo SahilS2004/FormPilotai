@@ -88,10 +88,11 @@ export default function OnboardingTour({
 }: OnboardingTourProps) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
+  const [targetBox, setTargetBox] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
 
   const step = TOUR_STEPS[currentStepIndex];
 
-  // Update target element focus and cursor position
+  // Update target element focus, cutout bounds, and cursor position
   useEffect(() => {
     if (!isOpen) return;
 
@@ -101,7 +102,14 @@ export default function OnboardingTour({
       const el = document.getElementById(step.targetId);
       if (el) {
         const rect = el.getBoundingClientRect();
-        const rawX = rect.right - 24;
+        setTargetBox({
+          top: rect.top,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height
+        });
+
+        const rawX = rect.right - 18;
         const rawY = rect.top + rect.height / 2;
         // Clamp cursor within safe viewport bounds
         setCursorPos({
@@ -142,11 +150,29 @@ export default function OnboardingTour({
 
   return (
     <div className="fixed inset-0 z-50 pointer-events-none select-none">
-      {/* Semi-translucent dark vignette backdrop to focus attention */}
-      <div 
-        className="absolute inset-0 bg-navy-950/40 backdrop-blur-[2px] pointer-events-auto transition-opacity duration-300" 
-        onClick={onClose}
-      />
+      {/* Crystal-Clear Cutout Spotlight Window (No blur on target button) */}
+      {targetBox ? (
+        <div
+          className="fixed pointer-events-auto transition-all duration-300 ease-out z-40 cursor-pointer"
+          style={{
+            top: `${Math.max(0, targetBox.top - 5)}px`,
+            left: `${Math.max(0, targetBox.left - 5)}px`,
+            width: `${targetBox.width + 10}px`,
+            height: `${targetBox.height + 10}px`,
+            borderRadius: '14px',
+            boxShadow: '0 0 0 9999px rgba(11, 28, 61, 0.65), 0 0 24px 6px rgba(0, 186, 198, 0.75)',
+            border: '2px solid #00BAC6',
+            backgroundColor: 'transparent'
+          }}
+          onClick={handleNext}
+          title="Click to advance tour"
+        />
+      ) : (
+        <div 
+          className="absolute inset-0 bg-navy-950/60 pointer-events-auto transition-opacity duration-300" 
+          onClick={onClose}
+        />
+      )}
 
       {/* Guided Animated Cursor */}
       {cursorPos && (

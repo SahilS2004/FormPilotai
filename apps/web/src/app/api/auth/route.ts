@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { validateEmail, validatePassword, AuthUser } from '@/lib/auth';
+import { getDbPool, checkPostgresHealth } from '@/lib/db';
 
-// Simulated User Store
+// Fallback in-memory user store
 const usersDatabase: Array<{ id: string; name: string; email: string; passwordHash: string }> = [
   {
     id: 'usr_demo_1',
@@ -10,6 +11,13 @@ const usersDatabase: Array<{ id: string; name: string; email: string; passwordHa
     passwordHash: 'DemoPassword123!'
   }
 ];
+
+export async function GET(req: Request) {
+  return NextResponse.json({
+    status: 'ok',
+    message: 'Auth service operational'
+  });
+}
 
 export async function POST(req: Request) {
   try {
@@ -28,12 +36,37 @@ export async function POST(req: Request) {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
+    const pool = getDbPool();
+    const isDbHealthy = await checkPostgresHealth();
 
     // 1. SIGN IN ACTION
     if (action === 'signin') {
-      const user = usersDatabase.find((u) => u.email.toLowerCase() === normalizedEmail);
+      let user = usersDatabase.find((u) => u.email.toLowerCase() === normalizedEmail);
+
+      if (isDbHealthy && pool) {
+        try {
+          const res = await pool.query('SELECT id, name, email, role, created_at FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
+          if (res.rows?.[0]) {
+            const dbUser = res.rows[0];
+            return NextResponse.json({
+              user: {
+                id: dbUser.id,
+                name: dbUser.name,
+                email: dbUser.email,
+                role: dbUser.role || 'user',
+                createdAt: dbUser.created_at ? new Date(dbUser.created_at).toISOString() : new Date().toISOString()
+              },
+              token: `fpt_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+              message: 'Signed in successfully'
+            });
+          }
+        } catch (dbErr) {
+          console.warn('[DB Auth Lookup Warning]', dbErr);
+        }
+      }
+
       if (!user) {
-        // Create demo user session on the fly for any valid non-plus email
+        // Create demo user session on the fly for any valid standard email
         const newUser: AuthUser = {
           id: `usr_${Date.now()}`,
           name: normalizedEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
@@ -41,6 +74,16 @@ export async function POST(req: Request) {
           role: 'user',
           createdAt: new Date().toISOString()
         };
+
+        if (isDbHealthy && pool) {
+          try {
+            await pool.query(
+              'INSERT INTO users (id, name, email, role, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) ON CONFLICT (email) DO NOTHING',
+              [newUser.id, newUser.name, newUser.email, newUser.role]
+            );
+          } catch {}
+        }
+
         return NextResponse.json({
           user: newUser,
           token: `fpt_${Date.now()}_${Math.random().toString(36).slice(2)}`,
@@ -65,12 +108,21 @@ export async function POST(req: Request) {
 
     // 2. SIGN UP ACTION
     if (action === 'signup') {
-      const existing = usersDatabase.find((u) => u.email.toLowerCase() === normalizedEmail);
-      if (existing) {
+      const existingInMemory = usersDatabase.find((u) => u.email.toLowerCase() === normalizedEmail);
+      if (existingInMemory) {
         return NextResponse.json({ error: 'An account with this email address already exists.' }, { status: 409 });
       }
 
-      const userName = name?.trim() || normalizedEmail.split('@')[0];
+      if (isDbHealthy && pool) {
+        try {
+          const res = await pool.query('SELECT id FROM users WHERE LOWER(email) = $1', [normalizedEmail]);
+          if (res.rows && res.rows.length > 0) {
+            return NextResponse.json({ error: 'An account with this email address already exists.' }, { status: 409 });
+          }
+        } catch {}
+      }
+
+      const userName = name?.trim() || normalizedEmail.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
       const newUser: AuthUser = {
         id: `usr_${Date.now()}`,
         name: userName,
@@ -86,9 +138,21 @@ export async function POST(req: Request) {
         passwordHash: password
       });
 
+      if (isDbHealthy && pool) {
+        try {
+          await pool.query(
+            'INSERT INTO users (id, name, email, role, created_at) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)',
+            [newUser.id, newUser.name, newUser.email, newUser.role]
+          );
+        } catch (insertErr) {
+          console.warn('[DB User Insert Warning]', insertErr);
+        }
+      }
+
       return NextResponse.json({
         user: newUser,
         token: `fpt_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+        isNewUser: true,
         message: 'Account created successfully'
       }, { status: 201 });
     }
