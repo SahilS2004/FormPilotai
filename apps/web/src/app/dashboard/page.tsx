@@ -235,6 +235,7 @@ export default function DashboardPage() {
   const [bulkUrlsText, setBulkUrlsText] = useState('');
   const [bulkAutoSubmit, setBulkAutoSubmit] = useState(false);
   const [bulkJobName, setBulkJobName] = useState('');
+  const [bulkError, setBulkError] = useState('');
   const [isBulkRunning, setIsBulkRunning] = useState(false);
 
   // State for Settings
@@ -260,7 +261,28 @@ export default function DashboardPage() {
         }
       })
       .catch(err => console.warn('Failed to load form history', err));
+
+    fetch('/api/bulk-jobs')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data.jobs)) setBulkJobs(data.jobs);
+      })
+      .catch(err => console.warn('Failed to load fleet batches', err));
   }, []);
+
+  useEffect(() => {
+    const running = bulkJobs.some((job) => job.status === 'running' || job.status === 'queued');
+    if (!running) return;
+    const timer = window.setInterval(() => {
+      fetch('/api/bulk-jobs')
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data.jobs)) setBulkJobs(data.jobs);
+        })
+        .catch(() => {});
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [bulkJobs]);
 
   useEffect(() => {
     let stopped = false;
@@ -437,63 +459,37 @@ export default function DashboardPage() {
   };
 
   // Handlers for Bulk Runner
-  const handleStartBulkJob = () => {
+  const handleStartBulkJob = async () => {
     const raw = bulkUrlsText.split('\n').map((u) => u.trim()).filter((u) => u.length > 0);
     if (raw.length === 0) return;
 
     setIsBulkRunning(true);
-    const newJob: BulkFormJob = {
-      id: `bulk_${Date.now()}`,
-      name: bulkJobName || `Batch Run - ${new Date().toLocaleTimeString()}`,
-      status: 'running',
-      autoSubmit: bulkAutoSubmit,
-      activeDocIds: docs.filter((d) => d.isEnabled).map((d) => d.id),
-      tone,
-      totalCount: raw.length,
-      completedCount: 0,
-      failedCount: 0,
-      createdAt: new Date().toISOString(),
-      urls: raw.map((u, i) => {
-        let domain = 'web-portal';
-        try { domain = new URL(u).hostname; } catch {}
-        return {
-          id: `item_${Date.now()}_${i}`,
-          url: u,
-          domain,
-          status: 'scanning',
-          formTitle: `${domain} Application Form`,
-          totalFieldsCount: 12,
-          filledFieldsCount: 0,
-          averageConfidence: 0.94
-        };
-      })
-    };
-
-    setBulkJobs([newJob, ...bulkJobs]);
-    setBulkUrlsText('');
-    setBulkJobName('');
-
-    setTimeout(() => {
-      setBulkJobs((prev) =>
-        prev.map((job) => {
-          if (job.id === newJob.id) {
-            return {
-              ...job,
-              status: 'completed',
-              completedCount: job.totalCount,
-              completedAt: new Date().toISOString(),
-              urls: job.urls.map((item) => ({
-                ...item,
-                status: bulkAutoSubmit ? 'submitted' : 'filled',
-                filledFieldsCount: item.totalFieldsCount
-              }))
-            };
-          }
-          return job;
-        })
-      );
+    setBulkError('');
+    try {
+      const response = await fetch('/api/bulk-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          urls: raw,
+          name: bulkJobName,
+          autoSubmit: bulkAutoSubmit,
+          tone,
+          activeDocIds: docs.filter((doc) => doc.isEnabled).map((doc) => doc.id),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.job) {
+        setBulkError(data.error || 'The fleet did not start.');
+        return;
+      }
+      setBulkJobs((current) => [data.job, ...current.filter((job) => job.id !== data.job.id)]);
+      setBulkUrlsText('');
+      setBulkJobName('');
+    } catch (error) {
+      console.warn('Failed to start fleet', error);
+    } finally {
       setIsBulkRunning(false);
-    }, 3000);
+    }
   };
 
   const handleSaveSettings = () => {
@@ -510,7 +506,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col lg:flex-row">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 dark:bg-[#080E21] dark:text-slate-100 flex flex-col lg:flex-row">
       {/* Mobile Drawer Backdrop */}
       {isMobileNavOpen && (
         <div 
@@ -532,7 +528,7 @@ export default function DashboardPage() {
               <img 
                 src="/brand/logo-full.png" 
                 alt="FormPilot AI" 
-                className="h-10 sm:h-12 w-auto object-contain cursor-pointer transition hover:opacity-90"
+                className="h-10 sm:h-12 w-auto object-contain cursor-pointer transition hover:opacity-90 dark:brightness-0 dark:invert"
               />
             </Link>
             <button
@@ -1105,7 +1101,7 @@ export default function DashboardPage() {
                         onChange={(e) => setBulkAutoSubmit(e.target.checked)}
                         className="rounded border-slate-300 dark:border-slate-700 text-cyan-600 focus:ring-cyan-500 dark:bg-slate-800"
                       />
-                      <span>Auto-Submit if Confidence $\ge 90\%$</span>
+                      <span>Save to history when confidence is at least 90%</span>
                     </label>
 
                     <div className="text-xs text-slate-500 dark:text-slate-400">
@@ -1115,13 +1111,14 @@ export default function DashboardPage() {
 
                   <button
                     onClick={handleStartBulkJob}
-                    disabled={isBulkRunning || !bulkUrlsText.trim()}
+                    disabled={isBulkRunning || bulkJobs.some((job) => job.status === 'running') || !bulkUrlsText.trim()}
                     className="btn-lightup bg-navy-800 hover:bg-navy-900 dark:bg-cyan-600 dark:hover:bg-cyan-700 disabled:opacity-50 text-white text-xs font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition hover:shadow"
                   >
                     <Send size={15} className="text-cyan-400 dark:text-white" />
-                    <span>{isBulkRunning ? 'Agents Running...' : 'Launch Fleet Runner'}</span>
+                    <span>{isBulkRunning || bulkJobs.some((job) => job.status === 'running') ? 'Agents Running...' : 'Launch Fleet Runner'}</span>
                   </button>
                 </div>
+                {bulkError && <p className="text-xs text-rose-600">{bulkError}</p>}
               </div>
 
               {/* Active / Past Bulk Batches */}
@@ -1153,25 +1150,48 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-bold capitalize">
-                          {job.status}
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-bold capitalize border ${
+                          job.status === 'partially_failed'
+                            ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800'
+                            : job.status === 'running'
+                              ? 'bg-cyan-50 text-cyan-800 border-cyan-200 dark:bg-cyan-950/60 dark:text-cyan-300 dark:border-cyan-800'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                        }`}>
+                          {job.status.replace(/_/g, ' ')}
                         </span>
                       </div>
 
-                      {/* Progress Items */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {job.urls.map((item) => (
-                          <div key={item.id} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-navy-800 dark:text-white truncate max-w-[150px]">{item.domain}</span>
-                              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded">
+                          <div key={item.id} className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <a href={item.url} target="_blank" rel="noreferrer" className="font-bold text-navy-800 dark:text-white truncate hover:underline">{item.domain}</a>
+                              <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                                item.status === 'failed'
+                                  ? 'text-rose-700 bg-rose-50 border-rose-200 dark:text-rose-300 dark:bg-rose-950/60 dark:border-rose-800'
+                                  : item.status === 'filled' || item.status === 'submitted'
+                                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/60 dark:border-emerald-800'
+                                    : 'text-cyan-800 bg-cyan-50 border-cyan-200 dark:text-cyan-300 dark:bg-cyan-950/60 dark:border-cyan-800'
+                              }`}>
                                 {item.status}
                               </span>
                             </div>
                             <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                              <span>Filled: {item.filledFieldsCount}/{item.totalFieldsCount}</span>
-                              <span>Conf: {Math.round((item.averageConfidence || 0.9) * 100)}%</span>
+                              <span>Filled: {item.filledFieldsCount || 0}/{item.totalFieldsCount || 0}</span>
+                              <span>Conf: {Math.round((item.averageConfidence || 0) * 100)}%</span>
                             </div>
+                            {item.formTitle && <p className="text-[11px] text-slate-600 dark:text-slate-300 truncate">{item.formTitle}</p>}
+                            {item.error && <p className="text-[11px] text-rose-600">{item.error}</p>}
+                            {item.answers && item.answers.length > 0 && (
+                              <ul className="max-h-40 overflow-y-auto space-y-1 border-t border-slate-200 dark:border-slate-700 pt-2">
+                                {item.answers.map((answer) => (
+                                  <li key={`${item.id}-${answer.question}`} className="text-[11px] text-slate-600 dark:text-slate-300">
+                                    <span className="font-semibold text-navy-800 dark:text-white">{answer.question}: </span>
+                                    {answer.answer}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </div>
                         ))}
                       </div>

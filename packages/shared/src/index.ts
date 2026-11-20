@@ -302,6 +302,7 @@ export interface BulkFormItem {
   averageConfidence?: number;
   error?: string;
   resultHistoryId?: string;
+  answers?: { question: string; answer: string }[];
 }
 
 export interface BulkFormJob {

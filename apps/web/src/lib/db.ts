@@ -2,7 +2,8 @@ import { Pool } from 'pg';
 import { 
   KBDocument, 
   FormReminder, 
-  BulkFormJob, 
+  BulkFormJob,
+  BulkFormItem, 
   FormFillHistoryRecord, 
   PersonaTone, 
   AgentPromptConfig 
@@ -578,47 +579,74 @@ export async function fetchActionableReminders(): Promise<FormReminder[]> {
 // 3. Bulk Multi-Site Jobs API
 // =========================================================================
 
-export async function fetchAllBulkJobs(): Promise<BulkFormJob[]> {
-  const isHealthy = await checkPostgresHealth();
-  if (!isHealthy || !pool) {
-    return bulkJobsStore;
+function parseAnswers(value: unknown): { question: string; answer: string }[] {
+  const raw = typeof value === 'string' ? JSON.parse(value) : value;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => ({
+      question: String(item.question || ''),
+      answer: String(item.answer || ''),
+    }))
+    .filter((item) => item.question && item.answer);
+}
+
+function parseDocIds(value: unknown): string[] {
+  try {
+    const raw = typeof value === 'string' ? JSON.parse(value) : value;
+    return Array.isArray(raw) ? raw.map((item) => String(item)).filter(Boolean) : [];
+  } catch {
+    return [];
   }
+}
+
+export async function fetchAllBulkJobs(): Promise<BulkFormJob[]> {
+  const active = await withDatabase();
+  if (!active) return bulkJobsStore;
 
   try {
-    const jobsRes = await pool.query(
-      `SELECT id, name, status, auto_submit as "autoSubmit", tone, total_count as "totalCount", 
+    const jobsRes = await active.query(
+      `SELECT id, name, status, auto_submit as "autoSubmit", tone, total_count as "totalCount",
               completed_count as "completedCount", failed_count as "failedCount",
+              active_doc_ids as "activeDocIds",
               created_at as "createdAt", completed_at as "completedAt"
        FROM bulk_jobs
        ORDER BY created_at DESC`
     );
 
-    const itemsRes = await pool.query(
-      `SELECT id, job_id as "jobId", url, domain, status, form_title as "formTitle", 
-              filled_fields_count as "filledFieldsCount", total_fields_count as "totalFieldsCount", 
-              average_confidence as "averageConfidence", error
-       FROM bulk_job_items`
+    const itemsRes = await active.query(
+      `SELECT id, job_id as "jobId", url, domain, status, form_title as "formTitle",
+              filled_fields_count as "filledFieldsCount", total_fields_count as "totalFieldsCount",
+              average_confidence as "averageConfidence", error, answers
+       FROM bulk_job_items
+       ORDER BY created_at ASC, id ASC`
     );
 
-    const itemsByJob = new Map<string, any[]>();
+    const itemsByJob = new Map<string, BulkFormJob['urls']>();
     for (const item of itemsRes.rows) {
       const list = itemsByJob.get(item.jobId) || [];
       list.push({
-        ...item,
-        averageConfidence: Number(item.averageConfidence)
+        id: item.id,
+        url: item.url,
+        domain: item.domain,
+        status: item.status,
+        formTitle: item.formTitle || undefined,
+        filledFieldsCount: Number(item.filledFieldsCount || 0),
+        totalFieldsCount: Number(item.totalFieldsCount || 0),
+        averageConfidence: Number(item.averageConfidence || 0),
+        error: item.error || undefined,
+        answers: parseAnswers(item.answers),
       });
       itemsByJob.set(item.jobId, list);
     }
 
-    if (jobsRes.rows && jobsRes.rows.length > 0) {
-      return jobsRes.rows.map(job => ({
-        ...job,
-        activeDocIds: ['doc_1', 'doc_2'],
-        urls: itemsByJob.get(job.id) || [],
-        createdAt: new Date(job.createdAt).toISOString(),
-        completedAt: job.completedAt ? new Date(job.completedAt).toISOString() : undefined
-      }));
-    }
+    return (jobsRes.rows || []).map((job) => ({
+      ...job,
+      activeDocIds: parseDocIds(job.activeDocIds),
+      urls: itemsByJob.get(job.id) || [],
+      createdAt: new Date(job.createdAt).toISOString(),
+      completedAt: job.completedAt ? new Date(job.completedAt).toISOString() : undefined,
+    }));
   } catch (err) {
     console.warn('[DB fetchAllBulkJobs fallback]', err);
   }
@@ -626,16 +654,16 @@ export async function fetchAllBulkJobs(): Promise<BulkFormJob[]> {
 }
 
 export async function createBulkJobRecord(job: BulkFormJob): Promise<BulkFormJob> {
-  const isHealthy = await checkPostgresHealth();
-  if (!isHealthy || !pool) {
+  const active = await withDatabase();
+  if (!active) {
     bulkJobsStore.unshift(job);
     return job;
   }
 
   try {
-    await pool.query(
-      `INSERT INTO bulk_jobs (id, name, status, auto_submit, tone, total_count, completed_count, failed_count, created_at, completed_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    await active.query(
+      `INSERT INTO bulk_jobs (id, name, status, auto_submit, tone, total_count, completed_count, failed_count, active_doc_ids, created_at, completed_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [
         job.id,
         job.name,
@@ -645,15 +673,16 @@ export async function createBulkJobRecord(job: BulkFormJob): Promise<BulkFormJob
         job.totalCount,
         job.completedCount,
         job.failedCount,
+        JSON.stringify(job.activeDocIds || []),
         job.createdAt,
-        job.completedAt || null
+        job.completedAt || null,
       ]
     );
 
     for (const item of job.urls) {
-      await pool.query(
-        `INSERT INTO bulk_job_items (id, job_id, url, domain, status, form_title, filled_fields_count, total_fields_count, average_confidence, error)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      await active.query(
+        `INSERT INTO bulk_job_items (id, job_id, url, domain, status, form_title, filled_fields_count, total_fields_count, average_confidence, error, answers)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
         [
           item.id,
           job.id,
@@ -664,7 +693,8 @@ export async function createBulkJobRecord(job: BulkFormJob): Promise<BulkFormJob
           item.filledFieldsCount || 0,
           item.totalFieldsCount || 0,
           item.averageConfidence || 0,
-          item.error || null
+          item.error || null,
+          JSON.stringify(item.answers || []),
         ]
       );
     }
@@ -673,6 +703,63 @@ export async function createBulkJobRecord(job: BulkFormJob): Promise<BulkFormJob
     bulkJobsStore.unshift(job);
   }
   return job;
+}
+
+export async function updateBulkItem(itemId: string, patch: Partial<BulkFormItem>): Promise<void> {
+  const current = bulkJobsStore.flatMap((job) => job.urls).find((item) => item.id === itemId);
+  if (current) Object.assign(current, patch);
+
+  const active = await withDatabase();
+  if (!active) return;
+  await active.query(
+    `UPDATE bulk_job_items SET
+       status = COALESCE($2, status),
+       form_title = COALESCE($3, form_title),
+       filled_fields_count = COALESCE($4, filled_fields_count),
+       total_fields_count = COALESCE($5, total_fields_count),
+       average_confidence = COALESCE($6, average_confidence),
+       error = $7,
+       answers = COALESCE($8, answers)
+     WHERE id = $1`,
+    [
+      itemId,
+      patch.status || null,
+      patch.formTitle || null,
+      patch.filledFieldsCount ?? null,
+      patch.totalFieldsCount ?? null,
+      patch.averageConfidence ?? null,
+      patch.error ?? null,
+      patch.answers ? JSON.stringify(patch.answers) : null,
+    ]
+  );
+}
+
+export async function saveBulkProgress(jobId: string, patch: {
+  status?: BulkFormJob['status'];
+  completedCount?: number;
+  failedCount?: number;
+  completedAt?: string;
+}): Promise<void> {
+  const current = bulkJobsStore.find((job) => job.id === jobId);
+  if (current) Object.assign(current, patch);
+
+  const active = await withDatabase();
+  if (!active) return;
+  await active.query(
+    `UPDATE bulk_jobs SET
+       status = COALESCE($2, status),
+       completed_count = COALESCE($3, completed_count),
+       failed_count = COALESCE($4, failed_count),
+       completed_at = COALESCE($5, completed_at)
+     WHERE id = $1`,
+    [
+      jobId,
+      patch.status || null,
+      patch.completedCount ?? null,
+      patch.failedCount ?? null,
+      patch.completedAt || null,
+    ]
+  );
 }
 
 // =========================================================================

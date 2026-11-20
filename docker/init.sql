@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS bulk_jobs (
     total_count INT DEFAULT 0,
     completed_count INT DEFAULT 0,
     failed_count INT DEFAULT 0,
+    active_doc_ids TEXT DEFAULT '[]',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP WITH TIME ZONE
 );
@@ -99,11 +100,12 @@ CREATE TABLE IF NOT EXISTS bulk_job_items (
     url TEXT NOT NULL,
     domain VARCHAR(255) NOT NULL,
     status VARCHAR(64) DEFAULT 'queued',
-    form_title VARCHAR(255),
+    form_title TEXT,
     filled_fields_count INT DEFAULT 0,
     total_fields_count INT DEFAULT 0,
     average_confidence NUMERIC(3, 2) DEFAULT 0.0,
     error TEXT,
+    answers JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

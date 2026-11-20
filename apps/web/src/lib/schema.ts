@@ -54,6 +54,9 @@ export async function ensureDatabaseSchema(pool: Pool): Promise<void> {
     `ALTER TABLE document_jobs ALTER COLUMN title TYPE TEXT`,
     `ALTER TABLE document_jobs ALTER COLUMN company TYPE TEXT`,
     `ALTER TABLE document_jobs ALTER COLUMN role TYPE TEXT`,
+    `ALTER TABLE bulk_jobs ADD COLUMN IF NOT EXISTS active_doc_ids TEXT DEFAULT '[]'`,
+    `ALTER TABLE bulk_job_items ADD COLUMN IF NOT EXISTS answers JSONB DEFAULT '[]'::jsonb`,
+    `ALTER TABLE bulk_job_items ALTER COLUMN form_title TYPE TEXT`,
   ];
   for (const sql of alters) {
     await pool.query(sql);
