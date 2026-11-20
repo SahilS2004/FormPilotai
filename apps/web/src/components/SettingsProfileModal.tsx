@@ -33,9 +33,12 @@ export interface UserSession {
 interface SettingsProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialTab?: 'persona' | 'model' | 'profile' | 'extension' | 'appearance';
   user: UserSession | null;
   currentTone: PersonaTone;
   onToneChange: (tone: PersonaTone) => void;
+  customPrompt?: string;
+  onPromptDirectivesChange?: (directives: string) => void;
   userProfile?: UserInitialProfile | null;
   onProfileUpdate?: (profile: UserInitialProfile) => void;
   isDarkMode: boolean;
@@ -45,15 +48,18 @@ interface SettingsProfileModalProps {
 export default function SettingsProfileModal({
   isOpen,
   onClose,
+  initialTab = 'persona',
   user,
   currentTone,
   onToneChange,
+  customPrompt: propCustomPrompt,
+  onPromptDirectivesChange,
   userProfile,
   onProfileUpdate,
   isDarkMode,
   onToggleTheme
 }: SettingsProfileModalProps) {
-  const [activeTab, setActiveTab] = useState<'agent' | 'profile' | 'extension' | 'appearance'>('agent');
+  const [activeTab, setActiveTab] = useState<'persona' | 'model' | 'profile' | 'extension' | 'appearance'>('persona');
 
   // Agent API Key State
   const [apiKey, setApiKey] = useState('');
@@ -61,7 +67,7 @@ export default function SettingsProfileModal({
   const [statusMessage, setStatusMessage] = useState('Connected to FormPilot Default Cloud Model');
   
   // Custom directives
-  const [customPrompt, setCustomPrompt] = useState('');
+  const [customPrompt, setCustomPrompt] = useState(propCustomPrompt || '');
   const [showKey, setShowKey] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -70,23 +76,30 @@ export default function SettingsProfileModal({
   const [referralSource, setReferralSource] = useState(userProfile?.referralSource || 'Google / Web Search');
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const savedKey = localStorage.getItem('formpilot_custom_api_key');
-      if (savedKey) {
-        setApiKey(savedKey);
-        setKeyStatus('custom_connected');
-        setStatusMessage('Custom API Key Connected');
-      } else {
-        setKeyStatus('default_backend');
-        setStatusMessage('Connected to FormPilot Default Cloud Model');
+    if (isOpen) {
+      if (initialTab) {
+        setActiveTab(initialTab);
       }
+      if (typeof window !== 'undefined') {
+        const savedKey = localStorage.getItem('formpilot_custom_api_key');
+        if (savedKey) {
+          setApiKey(savedKey);
+          setKeyStatus('custom_connected');
+          setStatusMessage('Custom API Key Connected');
+        } else {
+          setKeyStatus('default_backend');
+          setStatusMessage('Connected to FormPilot Default Cloud Model');
+        }
 
-      const savedDirectives = localStorage.getItem('formpilot_custom_directives');
-      if (savedDirectives) {
-        setCustomPrompt(savedDirectives);
+        const savedDirectives = localStorage.getItem('formpilot_custom_directives');
+        if (savedDirectives) {
+          setCustomPrompt(savedDirectives);
+        } else if (propCustomPrompt) {
+          setCustomPrompt(propCustomPrompt);
+        }
       }
     }
-  }, [isOpen]);
+  }, [isOpen, initialTab, propCustomPrompt]);
 
   if (!isOpen) return null;
 
@@ -119,8 +132,11 @@ export default function SettingsProfileModal({
 
   const handleSaveDirectives = () => {
     localStorage.setItem('formpilot_custom_directives', customPrompt);
+    if (onPromptDirectivesChange) {
+      onPromptDirectivesChange(customPrompt);
+    }
     setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2000);
+    setTimeout(() => setSaveSuccess(false), 2500);
   };
 
   const handleSaveProfileInfo = () => {
@@ -160,7 +176,7 @@ export default function SettingsProfileModal({
                 Settings & Preferences
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Manage your agent model, profile, extension & interface
+                Persona directives, model configuration, profile, and extension downloads
               </p>
             </div>
           </div>
@@ -176,7 +192,8 @@ export default function SettingsProfileModal({
         {/* Navigation Tabs */}
         <div className="flex items-center gap-1 px-6 border-b border-slate-100 dark:border-slate-800 overflow-x-auto bg-white dark:bg-slate-900 shrink-0">
           {[
-            { id: 'agent', label: 'Agent & Model', icon: <Bot size={15} /> },
+            { id: 'persona', label: 'Persona & Tone', icon: <Sliders size={15} /> },
+            { id: 'model', label: 'Agent & Model', icon: <Bot size={15} /> },
             { id: 'profile', label: 'Profile', icon: <User size={15} /> },
             { id: 'extension', label: 'Extension & Samples', icon: <Download size={15} /> },
             { id: 'appearance', label: 'Theme & Account', icon: <Sun size={15} /> }
@@ -199,8 +216,108 @@ export default function SettingsProfileModal({
         {/* Modal Body */}
         <div className="overflow-y-auto p-6 space-y-6 flex-1 text-slate-800 dark:text-slate-200">
           
-          {/* TAB 1: AGENT & MODEL CONFIGURATION */}
-          {activeTab === 'agent' && (
+          {/* TAB 1: PERSONA, TONE & SYSTEM DIRECTIVES */}
+          {activeTab === 'persona' && (
+            <div className="space-y-6">
+              <div className="space-y-1">
+                <h4 className="text-sm sm:text-base font-extrabold text-navy-800 dark:text-white">
+                  Persona, Tone & System Directives
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Tune the voice of the FormPilot agent and supply custom prompt directives that persist across all form completions.
+                </p>
+              </div>
+
+              {/* Default Tone Presets */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-navy-800 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-cyan-600" />
+                    <span>Default Persona Tone</span>
+                  </label>
+                  <span className="text-[11px] font-semibold text-cyan-700 dark:text-cyan-400 capitalize">
+                    Current: <strong>{currentTone}</strong>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { id: 'professional', label: 'Professional', desc: 'Articulate, formal, executive' },
+                    { id: 'informative', label: 'Informative', desc: 'Factual, precise, concise' },
+                    { id: 'requesting', label: 'Requesting', desc: 'Polite, persuasive, petitioning' },
+                    { id: 'casual', label: 'Casual', desc: 'Approachable, relaxed, brief' }
+                  ].map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => onToneChange(item.id as PersonaTone)}
+                      className={`p-3.5 rounded-xl border text-left transition-all flex items-start justify-between ${
+                        currentTone === item.id
+                          ? 'bg-navy-800 border-navy-800 text-white shadow-sm ring-2 ring-cyan-400'
+                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-cyan-400'
+                      }`}
+                    >
+                      <div>
+                        <strong className="block text-xs font-bold capitalize">{item.label}</strong>
+                        <span className={`text-[11px] block mt-0.5 ${currentTone === item.id ? 'text-cyan-300' : 'text-slate-500 dark:text-slate-400'}`}>
+                          {item.desc}
+                        </span>
+                      </div>
+                      {currentTone === item.id && (
+                        <CheckCircle2 size={16} className="text-cyan-300 shrink-0 mt-0.5" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom System Prompt Directives */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-navy-800 dark:text-white uppercase tracking-wider block">
+                    Custom System Prompt Directives (Appended to Agent Brain)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleSaveDirectives}
+                    className="text-xs text-cyan-600 dark:text-cyan-400 font-bold hover:underline"
+                  >
+                    Save Directives
+                  </button>
+                </div>
+                <textarea
+                  value={customPrompt}
+                  onChange={(e) => setCustomPrompt(e.target.value)}
+                  rows={4}
+                  placeholder="E.g., 'Always format phone numbers in standard international format (+1 or E.164). Prioritize remote work preference. Emphasize full-stack React and autonomous AI experience.'"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500 leading-relaxed"
+                />
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  These instructions persist across all autofill actions in both the web app batch runner and browser extension.
+                </p>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveDirectives}
+                    className="btn-lightup bg-navy-800 hover:bg-navy-900 text-white text-xs font-semibold px-5 py-2.5 rounded-xl shadow-xs transition"
+                  >
+                    Save Persona & Prompt Directives
+                  </button>
+                </div>
+              </div>
+
+              {saveSuccess && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 font-semibold flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-600 dark:text-emerald-400" />
+                  <span>Persona settings and system directives saved successfully!</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 2: AGENT & MODEL CONFIGURATION */}
+          {activeTab === 'model' && (
             <div className="space-y-5">
               {/* Active Model Status Card */}
               <div className={`p-4 rounded-2xl border transition-all ${
@@ -269,62 +386,10 @@ export default function SettingsProfileModal({
                   </button>
                 </div>
               </div>
-
-              {/* Agent Reasoning Tone */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-navy-800 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <Sparkles size={14} className="text-cyan-600" />
-                  <span>Agent Reasoning Tone</span>
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {(['professional', 'informative', 'requesting', 'casual'] as PersonaTone[]).map(t => (
-                    <button
-                      key={t}
-                      onClick={() => onToneChange(t)}
-                      className={`p-2.5 rounded-xl border text-center text-xs font-bold capitalize transition ${
-                        currentTone === t
-                          ? 'bg-navy-800 border-navy-800 text-white shadow-xs'
-                          : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-cyan-400'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Custom Directives */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-navy-800 dark:text-white uppercase tracking-wider block">
-                    Custom Prompt Directives (Appended to Agent)
-                  </label>
-                  <button
-                    onClick={handleSaveDirectives}
-                    className="text-xs text-cyan-600 font-bold hover:underline"
-                  >
-                    Save Directives
-                  </button>
-                </div>
-                <textarea
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  rows={3}
-                  placeholder="E.g., 'Format all telephone numbers with standard international format (+1 or E.164). Prioritize remote work preference.'"
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500"
-                />
-              </div>
-
-              {saveSuccess && (
-                <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 font-semibold flex items-center gap-2">
-                  <CheckCircle2 size={15} />
-                  <span>Settings saved successfully!</span>
-                </div>
-              )}
             </div>
           )}
 
-          {/* TAB 2: PROFILE DETAILS */}
+          {/* TAB 3: PROFILE DETAILS */}
           {activeTab === 'profile' && (
             <div className="space-y-5">
               <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
@@ -384,7 +449,7 @@ export default function SettingsProfileModal({
             </div>
           )}
 
-          {/* TAB 3: EXTENSION & SAMPLE DOWNLOADS */}
+          {/* TAB 4: EXTENSION & SAMPLE DOWNLOADS */}
           {activeTab === 'extension' && (
             <div className="space-y-5">
               {/* Chrome Extension Download Card */}
@@ -453,7 +518,7 @@ export default function SettingsProfileModal({
             </div>
           )}
 
-          {/* TAB 4: THEME & ACTIONS */}
+          {/* TAB 5: THEME & ACTIONS */}
           {activeTab === 'appearance' && (
             <div className="space-y-6">
               {/* Theme Toggle */}
