@@ -45,8 +45,7 @@ const DEMO_MILESTONES = [
   { id: 'kb', label: '1. Explore KB Scopes', sub: 'Enable docs & descriptions', tab: 'kb' as const },
   { id: 'reminders', label: '2. Form Reminders', sub: 'Set auto-action policies', tab: 'reminders' as const },
   { id: 'bulk', label: '3. Bulk Multi-Site', sub: 'Fleet form processing', tab: 'bulk' as const },
-  { id: 'history', label: '4. Fill History & Audit', sub: 'Confidence heatmaps', tab: 'history' as const },
-  { id: 'settings', label: '5. Persona & Tone', sub: 'System directives', tab: 'settings' as const },
+  { id: 'history', label: '4. Fill History & Audit', sub: 'Confidence heatmaps', tab: 'history' as const }
 ];
 import { 
   KBDocument, 
@@ -67,7 +66,7 @@ import {
 
 export default function DashboardPage() {
   const [isMounted, setIsMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'kb' | 'reminders' | 'bulk' | 'history' | 'settings'>('kb');
+  const [activeTab, setActiveTab] = useState<'kb' | 'reminders' | 'bulk' | 'history'>('kb');
   
   // User Session & Profile Questionnaire State
   const [user, setUser] = useState<UserSession | null>(null);
@@ -127,15 +126,10 @@ export default function DashboardPage() {
         setIsInitialInfoOpen(true);
       }
 
-      // 4. Checklist & Tour
+      // 4. Checklist Milestones
       const savedMilestones = localStorage.getItem('formpilot_milestones');
       if (savedMilestones) {
         setCompletedMilestones(JSON.parse(savedMilestones));
-      }
-      const hasCompletedTour = localStorage.getItem('formpilot_tour_completed');
-      if (!hasCompletedTour && needsInfo !== 'true') {
-        const timer = setTimeout(() => setIsTourOpen(true), 900);
-        return () => clearTimeout(timer);
       }
     } catch {}
   }, []);
@@ -177,26 +171,7 @@ export default function DashboardPage() {
     setIsInitialInfoOpen(false);
   };
 
-  const handleMilestoneClick = (tab: 'kb' | 'reminders' | 'bulk' | 'history' | 'settings', id: string) => {
-    if (id === 'settings' || tab === 'settings') {
-      setSettingsInitialTab('persona');
-      setIsSettingsModalOpen(true);
-      setIsMobileNavOpen(false);
-      if (!completedMilestones.includes('settings')) {
-        const updated = [...completedMilestones, 'settings'];
-        setCompletedMilestones(updated);
-        try {
-          localStorage.setItem('formpilot_milestones', JSON.stringify(updated));
-          fetch('/api/onboarding', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ stepKey: 'settings' })
-          }).catch(() => {});
-        } catch {}
-      }
-      return;
-    }
-
+  const handleMilestoneClick = (tab: 'kb' | 'reminders' | 'bulk' | 'history', id: string) => {
     setActiveTab(tab);
     setIsMobileNavOpen(false);
     if (!completedMilestones.includes(id)) {
@@ -511,24 +486,6 @@ export default function DashboardPage() {
                 {historyStore.length}
               </span>
             </button>
-
-            <button
-              id="tour-settings-nav"
-              onClick={() => {
-                setSettingsInitialTab('persona');
-                setIsSettingsModalOpen(true);
-                handleMilestoneClick('settings', 'settings');
-              }}
-              className="w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-semibold transition text-left text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-navy-800 dark:hover:text-white"
-            >
-              <div className="flex items-center gap-3">
-                <SlidersHorizontal size={18} className="text-slate-400" />
-                <span>Persona & Directives</span>
-              </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
-                Popup
-              </span>
-            </button>
           </nav>
 
           {/* Initial Demo Checklist Widget for First-Time Users */}
@@ -540,7 +497,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
-                  {completedMilestones.length}/5 Done
+                  {completedMilestones.length}/4 Done
                 </span>
                 <button
                   onClick={() => setIsChecklistCollapsed(!isChecklistCollapsed)}
@@ -558,7 +515,7 @@ export default function DashboardPage() {
                 <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
                   <div 
                     className="bg-gradient-to-r from-cyan-500 to-cyan-400 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.round((completedMilestones.length / 5) * 100)}%` }}
+                    style={{ width: `${Math.min(100, Math.round((completedMilestones.length / 4) * 100))}%` }}
                   />
                 </div>
 
@@ -607,7 +564,7 @@ export default function DashboardPage() {
                     <Compass size={12} className="animate-spin-slow" />
                     <span>Guided Tour</span>
                   </button>
-                  {completedMilestones.length === 5 && (
+                  {completedMilestones.length === 4 && (
                     <button
                       onClick={handleResetChecklist}
                       className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-1 transition text-[10px]"
@@ -1348,7 +1305,7 @@ export default function DashboardPage() {
           handleMilestoneClick(tab, tab);
         }}
         onComplete={() => {
-          const all = ['kb', 'reminders', 'bulk', 'history', 'settings'];
+          const all = ['kb', 'reminders', 'bulk', 'history'];
           setCompletedMilestones(all);
           setIsTourOpen(false);
           try {

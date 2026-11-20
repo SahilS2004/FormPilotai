@@ -145,15 +145,15 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
-      {/* Back to Home Link */}
-      <div className="w-full max-w-md mx-auto mb-4 sm:mb-6 flex justify-start">
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8 relative">
+      {/* Top Left Back Button */}
+      <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-10">
         <Link 
           href="/" 
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-navy-800 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-2xs hover:shadow-xs transition"
+          className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-navy-800 bg-white px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl border border-slate-200 shadow-2xs hover:shadow-xs transition"
         >
           <ArrowLeft size={14} className="text-cyan-600" />
-          <span>Back to Landing Page</span>
+          <span>Back to Home</span>
         </Link>
       </div>
 

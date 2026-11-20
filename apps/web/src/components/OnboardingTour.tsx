@@ -20,7 +20,7 @@ export interface TourStep {
   badge: string;
   description: string;
   targetId: string;
-  tabKey: 'kb' | 'reminders' | 'bulk' | 'history' | 'settings';
+  tabKey: 'kb' | 'reminders' | 'bulk' | 'history';
   icon: React.ReactNode;
   hint: string;
 }
@@ -29,7 +29,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     targetId: 'tour-kb-nav',
     tabKey: 'kb',
-    badge: 'Step 1 of 5',
+    badge: 'Step 1 of 4',
     title: 'Document Knowledge Base & Scoping',
     description: 'Control exactly which documents FormPilot can access. Toggle documents on/off to scope retrieval, and add semantic descriptions so the AI understands each document context.',
     icon: <FileStack className="text-cyan-500" size={20} />,
@@ -38,7 +38,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     targetId: 'tour-reminders-nav',
     tabKey: 'reminders',
-    badge: 'Step 2 of 5',
+    badge: 'Step 2 of 4',
     title: 'Autonomous Form Reminders & Actions',
     description: 'Attach deadlines to specific website forms. If not manually submitted in time, FormPilot executes your autonomous action policy (Notify, Auto-Draft, or Auto-Submit).',
     icon: <CalendarClock className="text-cyan-500" size={20} />,
@@ -47,7 +47,7 @@ const TOUR_STEPS: TourStep[] = [
   {
     targetId: 'tour-bulk-nav',
     tabKey: 'bulk',
-    badge: 'Step 3 of 5',
+    badge: 'Step 3 of 4',
     title: 'Bulk Multi-Site Form Fleet',
     description: 'Paste batches of job applications or grant portals. FormPilot fans out background agent workers to analyze DOMs and fill fields across multiple sites simultaneously.',
     icon: <Bot className="text-cyan-500" size={20} />,
@@ -56,27 +56,18 @@ const TOUR_STEPS: TourStep[] = [
   {
     targetId: 'tour-history-nav',
     tabKey: 'history',
-    badge: 'Step 4 of 5',
+    badge: 'Step 4 of 4',
     title: 'Confidence Heatmaps & Citations',
     description: 'Audit every submission with color-coded heatmap scoring (🟢 ≥90% verified, 🟡 50-89% inferred, 🔴 <50% low confidence) and exact source document citations.',
     icon: <History className="text-cyan-500" size={20} />,
     hint: 'Click any historical log to view line-by-line questions, answers, and confidence levels.'
-  },
-  {
-    targetId: 'tour-settings-nav',
-    tabKey: 'settings',
-    badge: 'Step 5 of 5',
-    title: 'Persona Tone & System Directives',
-    description: 'Tailor FormPilot’s voice for different types of forms (Requesting, Informative, Professional, Casual) and inject custom instructions into the system prompt.',
-    icon: <SlidersHorizontal className="text-cyan-500" size={20} />,
-    hint: 'Custom instructions are injected into all autonomous browser filling operations.'
   }
 ];
 
 interface OnboardingTourProps {
   isOpen: boolean;
   onClose: () => void;
-  onStepChange: (tabKey: 'kb' | 'reminders' | 'bulk' | 'history' | 'settings') => void;
+  onStepChange: (tabKey: 'kb' | 'reminders' | 'bulk' | 'history') => void;
   onComplete: () => void;
 }
 
