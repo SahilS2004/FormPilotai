@@ -1,0 +1,53 @@
+name: Turn AWS off
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: formpilot-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  stop:
+    name: Stop the deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Stop web tasks and the database
+        run: |
+          set -euo pipefail
+          aws cloudformation deploy \
+            --stack-name formpilot-prod \
+            --template-file infra/cloudformation.yml \
+            --capabilities CAPABILITY_IAM \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides DesiredCount=0
+
+          DB="$(aws cloudformation describe-stack-resource \
+            --stack-name formpilot-prod \
+            --logical-resource-id Database \
+            --query StackResourceDetail.PhysicalResourceId \
+            --output text)"
+          STATUS="$(aws rds describe-db-instances \
+            --db-instance-identifier "$DB" \
+            --query 'DBInstances[0].DBInstanceStatus' \
+            --output text)"
+          echo "Database $DB is $STATUS"
+          if [ "$STATUS" = "available" ]; then
+            aws rds stop-db-instance --db-instance-identifier "$DB"
+            aws rds wait db-instance-stopped --db-instance-identifier "$DB"
+          fi
+          echo "Web tasks are at 0 and the database is stopped."

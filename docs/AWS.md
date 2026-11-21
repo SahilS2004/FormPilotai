@@ -47,7 +47,16 @@ The Chrome extension uses this load balancer for fill, documents, history, and r
 
 ## Automatic deploy
 
-A push to `main` runs `.github/workflows/deploy.yml`. It builds the web image, pushes it to ECR, applies `infra/cloudformation.yml`, and restarts the ECS tasks.
+A push to `main` updates the image and the stack. It does not change whether the site is on or off.
+
+## On and off
+
+Run these by hand from the Actions tab. They do not run on a commit.
+
+- **Turn AWS off** stops the web tasks and the database.
+- **Turn AWS on** starts the database, then starts two web tasks.
+
+A stopped database starts itself again after 7 days. The load balancer and NAT gateway stay in place so the site address does not change. Those two still have a small hourly charge. The database and the web tasks are the large charge, and they stop when the system is off.
 
 The repository needs these GitHub Actions secrets:
 
