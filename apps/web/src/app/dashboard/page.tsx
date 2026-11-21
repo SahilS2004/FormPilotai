@@ -81,15 +81,6 @@ export default function DashboardPage() {
       const storedUser = localStorage.getItem('formpilot_user');
       if (storedUser) {
         setUser(JSON.parse(storedUser));
-      } else {
-        const defaultUser: UserSession = {
-          id: 'usr_demo_1',
-          name: 'Demo Pilot',
-          email: 'demo@formpilot.ai',
-          role: 'user'
-        };
-        setUser(defaultUser);
-        localStorage.setItem('formpilot_user', JSON.stringify(defaultUser));
       }
 
       // 2. Load theme preference
@@ -110,7 +101,7 @@ export default function DashboardPage() {
         if (parsed.tone) {
           setTone(parsed.tone);
         }
-        const account = storedUser ? JSON.parse(storedUser) : { name: 'Demo Pilot', email: 'demo@formpilot.ai' };
+        const account = storedUser ? JSON.parse(storedUser) : { name: '', email: '' };
         fetch('/api/profile', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -633,108 +624,7 @@ export default function DashboardPage() {
           </nav>
         </div>
 
-        {/* Sticky Bottom Section of Sidebar */}
         <div className="mt-auto shrink-0 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-          {/* Demo Checklist: Sticking at the bottom of sidebar, default closed */}
-          <div className="p-4 border-b border-slate-100 dark:border-slate-800 space-y-2.5 bg-slate-50/50 dark:bg-slate-850/50">
-            <div 
-              onClick={() => setIsChecklistCollapsed(!isChecklistCollapsed)}
-              className="flex items-center justify-between cursor-pointer select-none group"
-            >
-              <div className="flex items-center gap-1.5">
-                <CheckSquare size={14} className="text-cyan-600" />
-                <span className="text-xs font-extrabold text-navy-800 dark:text-white tracking-tight group-hover:text-cyan-600 transition">
-                  Demo Checklist
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-50 dark:bg-cyan-950 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800">
-                  {completedMilestones.length}/4 Done
-                </span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsChecklistCollapsed(!isChecklistCollapsed);
-                  }}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                  title={isChecklistCollapsed ? 'Expand checklist' : 'Collapse checklist'}
-                >
-                  <ChevronDown size={14} className={`transform transition-transform duration-200 ${isChecklistCollapsed ? '-rotate-90' : 'rotate-0'}`} />
-                </button>
-              </div>
-            </div>
-
-            {!isChecklistCollapsed && (
-              <div className="space-y-2.5 pt-1 animate-in fade-in duration-200">
-                {/* Progress Bar */}
-                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                  <div 
-                    className="bg-gradient-to-r from-cyan-500 to-cyan-400 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, Math.round((completedMilestones.length / 4) * 100))}%` }}
-                  />
-                </div>
-
-                {/* Checklist Items */}
-                <div className="space-y-1 max-h-48 overflow-y-auto pr-0.5">
-                  {DEMO_MILESTONES.map((item) => {
-                    const isDone = completedMilestones.includes(item.id);
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => handleMilestoneClick(item.tab, item.id)}
-                        className={`w-full flex items-start gap-2.5 p-2 rounded-xl text-left transition group ${
-                          activeTab === item.tab 
-                            ? 'bg-slate-100/90 dark:bg-slate-800 shadow-2xs' 
-                            : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                        }`}
-                      >
-                        <div className="mt-0.5 shrink-0">
-                          {isDone ? (
-                            <CheckCircle2 size={13} className="text-cyan-600 fill-cyan-50 dark:fill-cyan-950" />
-                          ) : (
-                            <div className="w-3 h-3 rounded-full border border-slate-300 dark:border-slate-600 group-hover:border-cyan-400 transition" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className={`text-[11px] font-bold leading-tight ${
-                            isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-navy-800 dark:text-white'
-                          }`}>
-                            {item.label}
-                          </p>
-                          <span className="text-[9.5px] text-slate-500 dark:text-slate-400 block truncate">
-                            {item.sub}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Quick Tour Launcher & Reset */}
-                <div className="pt-2 flex items-center justify-between text-[11px] border-t border-slate-100 dark:border-slate-800">
-                  <button
-                    onClick={() => setIsTourOpen(true)}
-                    className="text-cyan-700 hover:text-cyan-800 dark:text-cyan-400 dark:hover:text-cyan-300 font-bold flex items-center gap-1 transition"
-                  >
-                    <Compass size={12} className="animate-spin-slow" />
-                    <span>Guided Tour</span>
-                  </button>
-                  {completedMilestones.length === 4 && (
-                    <button
-                      onClick={handleResetChecklist}
-                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex items-center gap-1 transition text-[10px]"
-                      title="Reset Demo Checklist"
-                    >
-                      <RotateCcw size={10} />
-                      <span>Reset</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
         {/* Bottom of Sidebar: Profile, Settings, Theme, and Sign Out Controls */}
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 space-y-3 bg-slate-50/60 dark:bg-slate-850">
           <div 
@@ -750,10 +640,10 @@ export default function DashboardPage() {
             </div>
             <div className="flex-1 min-w-0">
               <span className="text-xs font-bold text-navy-800 dark:text-white truncate block group-hover:text-cyan-600 transition">
-                {user?.name || 'Demo Pilot'}
+                {user?.name || 'Account'}
               </span>
               <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate block">
-                {user?.email || 'demo@formpilot.ai'}
+                {user?.email || ''}
               </span>
             </div>
             <Settings size={14} className="text-slate-400 group-hover:text-cyan-600 transition shrink-0" />
@@ -836,7 +726,10 @@ export default function DashboardPage() {
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate max-w-[200px] sm:max-w-none">
-                Autonomous Form Completion & Grounded Context Engine
+                {activeTab === 'kb' && 'Your documents'}
+                {activeTab === 'reminders' && 'Reminders'}
+                {activeTab === 'bulk' && 'Several sites'}
+                {activeTab === 'history' && 'Submitted answers'}
               </p>
             </div>
           </div>
@@ -863,17 +756,10 @@ export default function DashboardPage() {
                 <div>
                   <h2 className="text-xl font-bold text-navy-800 dark:text-white tracking-tight">Document Knowledge Base</h2>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Manage reference documents. Add semantic descriptions and toggle scope on or off for web form autofills.
+                    Documents used to fill forms.
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Link
-                    href="/demo-form"
-                    className="bg-cyan-500 hover:bg-cyan-400 text-navy-950 text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition"
-                  >
-                    <Sparkles size={15} />
-                    <span>🎯 Test Live Form &amp; File Upload</span>
-                  </Link>
                   <button
                     onClick={() => setShowAddDocModal(true)}
                     className="btn-lightup bg-navy-800 hover:bg-navy-900 dark:bg-cyan-600 dark:hover:bg-cyan-700 text-white text-xs font-semibold px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition hover:shadow"

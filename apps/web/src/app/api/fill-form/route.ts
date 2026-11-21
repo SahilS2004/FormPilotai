@@ -123,10 +123,16 @@ export async function POST(req: Request) {
             label: option.label,
             value: option.value || option.label,
           })),
-          passages: retrieved.slice(0, 6).map((chunk) => ({
-            documentName: chunk.documentName,
-            excerpt: chunk.content.replace(/\s+/g, ' ').trim().slice(0, 700),
-          })),
+          passages: [
+            ...retrieved.slice(0, 5).map((chunk) => ({
+              documentName: chunk.documentName,
+              excerpt: chunk.content.replace(/\s+/g, ' ').trim().slice(0, 500),
+            })),
+            ...(documentLinks.length > 0 ? [{
+              documentName: 'Links found in the documents',
+              excerpt: documentLinks.slice(0, 12).map((link) => link.url).join('\n'),
+            }] : []),
+          ],
         })),
       });
       modelAnswers = new Map(answers.map((answer) => [answer.fieldId, answer]));
@@ -232,12 +238,23 @@ function groupFields(fields: FormField[]): FieldUnit[] {
   return units;
 }
 
+function usableAnswer(field: FormField, raw: string): string {
+  let text = raw.replace(/\s+/g, ' ').trim();
+  const labeled = text.match(/^[^:]{2,80}:\s*(.+)$/);
+  if (labeled && labeled[1].trim().length > 0 && labeled[1].trim().length < text.length) {
+    text = labeled[1].trim();
+  }
+  const limit = field.type === 'textarea' ? 500 : 160;
+  if (!text || text.length > limit) return '';
+  return text;
+}
+
 function predictionsFromModel(
   unit: FieldUnit,
   answer: GeminiFieldAnswer | undefined,
   retrieved: VectorDocumentChunk[]
 ): PredictedFieldValue[] | null {
-  const value = answer?.value?.trim() || '';
+  const value = usableAnswer(unit.question, answer?.value || '');
   if (!answer || !value) return null;
   const citationChunk = retrieved.find((chunk) => chunk.documentName === answer.documentName) || retrieved[0];
   const citation = citationChunk ? {
@@ -824,12 +841,7 @@ function answerFromChunks(kind: FieldKind, chunks: VectorDocumentChunk[], field:
     };
   }
   if (kind === 'skip' || !top || overlap === 0 || similarity < 0.22) return blank;
-  return {
-    value: windowAround(context, terms),
-    confidence: Math.min(0.84, Math.max(0.45, similarity)),
-    rationale: `Closest passage for “${field.label || field.name || 'this question'}”.`,
-    citation,
-  };
+  return blank;
 }
 
 function windowAround(content: string, terms: string[], max = 420): string {
