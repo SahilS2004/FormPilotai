@@ -43,8 +43,14 @@ services:
       S3_SECRET_ACCESS_KEY: test
       S3_FORCE_PATH_STYLE: "true"
       AWS_REGION: us-east-1
+      GEMINI_MODEL: gemini-3.5-flash
+      GEMINI_FALLBACK_MODEL: gemini-3.6-flash
+      GEMINI_EMBEDDING_MODEL: gemini-embedding-2
+      EMBEDDING_DIM: "768"
       NEXT_TELEMETRY_DISABLED: 1
       PORT: 3000
+    env_file:
+      - ./apps/web/.env.local
     depends_on:
       postgres:
         condition: service_healthy

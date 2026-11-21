@@ -1,13 +1,13 @@
-import { getDbPool, checkPostgresHealth } from './db';
-import { embedText } from './embedder';
+import { getDbPool, checkPostgresHealth, withDatabase } from './db';
+import { embedText, embedTexts, embeddingDimension } from './gemini';
 import { VectorDocumentChunk } from '@formpilot/shared';
 
 // ============================================================================
-// Vector Embedding Engine (384-Dimensional Dense Semantic Embeddings)
+// Vector Embedding Engine (Gemini Embedding 2, 768 dimensions)
 // Supports PostgreSQL pgvector (<=> cosine distance) & In-Memory Fallback
 // ============================================================================
 
-const EMBEDDING_DIM = 384;
+const EMBEDDING_DIM = embeddingDimension();
 
 const memoryRoot = globalThis as typeof globalThis & {
   __formpilotVectors?: Array<{
@@ -26,7 +26,7 @@ if (!memoryRoot.__formpilotVectors) memoryRoot.__formpilotVectors = [];
 export const inMemoryVectorStore = memoryRoot.__formpilotVectors;
 
 /**
- * 384-d MiniLM embedding. Same width as the pgvector column.
+ * Gemini Embedding 2. Same width as the pgvector column.
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   return embedText(text);
@@ -93,64 +93,52 @@ export async function storeDocumentVectors(params: {
 
   const pool = getDbPool();
   const isHealthy = await checkPostgresHealth();
+  const embeddings = await embedTexts(chunks.map((chunk) => chunk.content));
 
-  // Remove existing vectors in memory
   const remainingInMemory = inMemoryVectorStore.filter(c => c.documentId !== documentId);
   inMemoryVectorStore.length = 0;
   inMemoryVectorStore.push(...remainingInMemory);
 
   if (isHealthy && pool) {
-    try {
-      // Clear previous chunks for this document
-      await pool.query('DELETE FROM document_chunks WHERE document_id = $1', [documentId]);
-
-      for (const chunk of chunks) {
-        const embedding = await generateEmbedding(chunk.content);
-        const chunkId = `chk_${documentId}_${chunk.chunkIndex}`;
-        const vectorStr = `[${embedding.join(',')}]`;
-
-        const chunkMetadata = {
-          ...metadata,
-          chunkIndex: chunk.chunkIndex,
-          totalChunks: chunks.length,
-          docName: documentName
-        };
-
-        await pool.query(
-          `INSERT INTO document_chunks (id, document_id, document_name, chunk_index, content, metadata, embedding)
-           VALUES ($1, $2, $3, $4, $5, $6, $7::vector)`,
-          [
-            chunkId,
-            documentId,
-            documentName,
-            chunk.chunkIndex,
-            chunk.content,
-            JSON.stringify(chunkMetadata),
-            vectorStr
-          ]
-        );
-
-        // Keep in memory copy as well
-        inMemoryVectorStore.push({
-          id: chunkId,
+    await pool.query('DELETE FROM document_chunks WHERE document_id = $1', [documentId]);
+    for (let i = 0; i < chunks.length; i += 1) {
+      const chunk = chunks[i];
+      const embedding = embeddings[i];
+      const chunkId = `chk_${documentId}_${chunk.chunkIndex}`;
+      const chunkMetadata = {
+        ...metadata,
+        chunkIndex: chunk.chunkIndex,
+        totalChunks: chunks.length,
+        docName: documentName
+      };
+      await pool.query(
+        `INSERT INTO document_chunks (id, document_id, document_name, chunk_index, content, metadata, embedding)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::vector)`,
+        [
+          chunkId,
           documentId,
           documentName,
-          chunkIndex: chunk.chunkIndex,
-          content: chunk.content,
-          metadata: chunkMetadata,
-          embedding
-        });
-      }
-
-      return { chunksStored: chunks.length, vectorDimension: EMBEDDING_DIM };
-    } catch (err) {
-      console.warn('[VectorStore PostgreSQL Error, falling back to in-memory]', err);
+          chunk.chunkIndex,
+          chunk.content,
+          JSON.stringify(chunkMetadata),
+          `[${embedding.join(',')}]`
+        ]
+      );
+      inMemoryVectorStore.push({
+        id: chunkId,
+        documentId,
+        documentName,
+        chunkIndex: chunk.chunkIndex,
+        content: chunk.content,
+        metadata: chunkMetadata,
+        embedding
+      });
     }
+    return { chunksStored: chunks.length, vectorDimension: EMBEDDING_DIM };
   }
 
-  // Fallback to in-memory embedding
-  for (const chunk of chunks) {
-    const embedding = await generateEmbedding(chunk.content);
+  for (let i = 0; i < chunks.length; i += 1) {
+    const chunk = chunks[i];
     inMemoryVectorStore.push({
       id: `chk_${documentId}_${chunk.chunkIndex}`,
       documentId,
@@ -158,7 +146,7 @@ export async function storeDocumentVectors(params: {
       chunkIndex: chunk.chunkIndex,
       content: chunk.content,
       metadata: { ...metadata, chunkIndex: chunk.chunkIndex },
-      embedding
+      embedding: embeddings[i]
     });
   }
 
@@ -166,6 +154,39 @@ export async function storeDocumentVectors(params: {
 }
 
 let chunkRepairStarted = false;
+let pendingReindex: Promise<void> | null = null;
+
+/** Re-embeds documents left pending after the vector width changes. Runs once per process. */
+export function reindexPendingDocuments(): Promise<void> {
+  if (!pendingReindex) {
+    pendingReindex = runReindex().catch((error) => {
+      pendingReindex = null;
+      throw error;
+    });
+  }
+  return pendingReindex;
+}
+
+async function runReindex(): Promise<void> {
+  const pool = await withDatabase();
+  if (!pool) return;
+  const pending = await pool.query(
+    `SELECT id, name, content_text
+     FROM documents
+     WHERE index_status = 'pending' AND content_text IS NOT NULL AND length(content_text) > 0`
+  );
+  for (const row of pending.rows) {
+    const stored = await storeDocumentVectors({
+      documentId: row.id,
+      documentName: row.name,
+      contentText: row.content_text,
+    });
+    await pool.query(
+      `UPDATE documents SET chunk_count = $2, index_status = 'indexed', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [row.id, stored.chunksStored]
+    );
+  }
+}
 
 /** Re-splits documents that were stored as one oversized chunk, so each question can retrieve a different passage. */
 export async function repairOversizedChunks(): Promise<void> {

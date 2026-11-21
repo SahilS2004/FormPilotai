@@ -5,6 +5,7 @@
  */
 
 import { runActionableReminders } from './reminder-runner';
+import { apiFetch } from './api';
 
 // Enable opening side panel on extension icon click
 chrome.runtime.onInstalled.addListener(() => {
@@ -59,7 +60,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SYNC_DOCUMENTS') {
     (async () => {
       try {
-        const res = await fetch('http://localhost:3000/api/documents');
+        const res = await apiFetch('/api/documents');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         await chrome.storage.local.set({ cachedDocuments: data.documents || [] });
@@ -76,7 +77,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SUBMIT_FORM_FILL') {
     (async () => {
       try {
-        const res = await fetch('http://localhost:3000/api/fill-form', {
+        const res = await apiFetch('/api/fill-form', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(message.payload || {})
@@ -96,7 +97,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'FORM_SUBMITTED') {
     (async () => {
       try {
-        const res = await fetch('http://localhost:3000/api/history', {
+        const res = await apiFetch('/api/history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(message.payload || {}),
@@ -115,7 +116,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'RECORD_SUBMISSION') {
     (async () => {
       try {
-        await fetch('http://localhost:3000/api/history', {
+        await apiFetch('/api/history', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(message.payload || {})

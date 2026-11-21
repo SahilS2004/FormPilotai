@@ -11,8 +11,6 @@ const nextConfig = (phase) => {
     experimental: {
       instrumentationHook: true,
       serverComponentsExternalPackages: [
-        '@xenova/transformers',
-        'onnxruntime-node',
         'sharp',
         'unpdf',
         'mammoth',

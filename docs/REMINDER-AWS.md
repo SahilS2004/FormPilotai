@@ -16,7 +16,7 @@ Fire time is `deadline - lead time`.
 | Piece | Service | Role |
 | --- | --- | --- |
 | Knowledge-base files | S3 `formpilot-kb` | Original PDF, Word, PowerPoint, text, and images |
-| Records and vectors | RDS PostgreSQL 16 with pgvector | `documents`, `document_chunks.embedding vector(384)`, `reminders`, `notifications` |
+| Records and vectors | RDS PostgreSQL 16 with pgvector | `documents`, `document_chunks.embedding vector(768)`, `reminders`, `notifications` |
 | Clock | EventBridge Scheduler, `rate(1 minute)` | Starts a dispatch |
 | Queue | SQS `formpilot-reminders` | One message per tick so a slow run does not overlap |
 | Dispatcher | Lambda `formpilot-reminder-dispatcher` | Runs `processDueReminders` |

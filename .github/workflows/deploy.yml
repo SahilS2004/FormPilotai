@@ -1,0 +1,87 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: formpilot-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Read the running stack
+        id: stack
+        run: |
+          query() {
+            aws cloudformation describe-stacks \
+              --stack-name formpilot-prod \
+              --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" \
+              --output text
+          }
+          echo "repo=$(query RepositoryUri)" >> "$GITHUB_OUTPUT"
+          echo "cluster=$(query ClusterName)" >> "$GITHUB_OUTPUT"
+          echo "service=$(query ServiceName)" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push the web image
+        run: |
+          docker build --platform linux/amd64 \
+            -t "${{ steps.stack.outputs.repo }}:${{ github.sha }}" \
+            -t "${{ steps.stack.outputs.repo }}:latest" \
+            .
+          docker push "${{ steps.stack.outputs.repo }}:${{ github.sha }}"
+          docker push "${{ steps.stack.outputs.repo }}:latest"
+
+      - name: Update the CloudFormation stack
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          aws cloudformation deploy \
+            --stack-name formpilot-prod \
+            --template-file infra/cloudformation.yml \
+            --capabilities CAPABILITY_IAM \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              "GeminiApiKey=${GEMINI_API_KEY}" \
+              ImageTag=latest \
+              DesiredCount=2 \
+              DbEngineVersion=16.15
+
+      - name: Roll the web tasks onto the new image
+        run: |
+          aws ecs update-service \
+            --cluster "${{ steps.stack.outputs.cluster }}" \
+            --service "${{ steps.stack.outputs.service }}" \
+            --force-new-deployment \
+            --query 'service.serviceName' \
+            --output text
+          aws ecs wait services-stable \
+            --cluster "${{ steps.stack.outputs.cluster }}" \
+            --service "${{ steps.stack.outputs.service }}"
+
+      - name: Print the site address
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name formpilot-prod \
+            --query "Stacks[0].Outputs[?OutputKey=='Url'].OutputValue" \
+            --output text

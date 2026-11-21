@@ -1,4 +1,5 @@
 import { KBDocument, FormSchema, PredictedFieldValue, DocumentRecommendation, PersonaTone } from '@formpilot/shared';
+import { apiFetch, getApiBase } from '../api';
 
 /**
  * FormPilot Side Panel Controller
@@ -83,9 +84,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     await chrome.storage.local.set({ formpilot_tone: activeTone });
   });
 
+  const apiBase = await getApiBase();
+  const serverLabel = document.querySelector('.subtext');
+  if (serverLabel) serverLabel.textContent = new URL(apiBase).host;
+
   // 3. Open Web App Knowledge Base Manager
   btnManageKb?.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'http://localhost:3000/dashboard' });
+    chrome.tabs.create({ url: `${apiBase}/dashboard` });
   });
 
   // 4. Load & Sync Documents
@@ -94,7 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Network & Messaging Resilience Helpers
   async function queryFormPredictions(payload: any) {
     try {
-      const res = await fetch('http://localhost:3000/api/fill-form', {
+      const res = await apiFetch('/api/fill-form', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -106,14 +111,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         return await chrome.runtime.sendMessage({ type: 'SUBMIT_FORM_FILL', payload });
       } catch (e: any) {
-        throw new Error(err.message || 'Could not connect to FormPilot server at http://localhost:3000');
+        throw new Error(err.message || `Could not connect to FormPilot at ${apiBase}`);
       }
     }
   }
 
   async function syncDocumentsApi() {
     try {
-      const res = await fetch('http://localhost:3000/api/documents');
+      const res = await apiFetch('/api/documents');
       if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
       const data = await res.json();
       await chrome.storage.local.set({ cachedDocuments: data.documents || [] });
@@ -122,7 +127,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         return await chrome.runtime.sendMessage({ type: 'SYNC_DOCUMENTS' });
       } catch (e: any) {
-        throw new Error(err.message || 'Failed to sync with http://localhost:3000/api/documents');
+        throw new Error(err.message || `Failed to sync with ${apiBase}/api/documents`);
       }
     }
   }
@@ -341,7 +346,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 9. Gap Upload Button
   btnGapUpload?.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'http://localhost:3000/dashboard' });
+    chrome.tabs.create({ url: `${apiBase}/dashboard` });
   });
 
   // 10. Quick Context Snippet Accordion & Adder
@@ -360,26 +365,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnSaveSnippet?.addEventListener('click', async () => {
     const text = inputSnippetText?.value.trim();
     if (!text) return;
-
-    const newSnippetDoc: KBDocument = {
-      id: `snippet_${Date.now()}`,
-      name: `Note (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`,
-      originalFilename: 'quick_snippet.txt',
-      mimeType: 'text/plain',
-      sizeBytes: text.length * 2,
-      description: text,
-      isEnabled: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    currentDocuments.unshift(newSnippetDoc);
-    await chrome.storage.local.set({ cachedDocuments: currentDocuments });
-    renderDocuments();
-
-    if (inputSnippetText) inputSnippetText.value = '';
-    if (snippetSaveStatus) {
+    const statusText = snippetSaveStatus?.querySelector('span');
+    if (snippetSaveStatus && statusText) {
+      statusText.textContent = 'Saving…';
       snippetSaveStatus.classList.remove('hidden');
+    }
+
+    try {
+      const res = await apiFetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `Note (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`,
+          originalFilename: 'quick_snippet.txt',
+          mimeType: 'text/plain',
+          description: text,
+          content: text,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      if (inputSnippetText) inputSnippetText.value = '';
+      await loadDocuments();
+      if (statusText) statusText.textContent = 'Saved';
+    } catch (err: any) {
+      if (statusText) statusText.textContent = 'Not saved';
+    }
+
+    if (snippetSaveStatus) {
       setTimeout(() => {
         snippetSaveStatus.classList.add('hidden');
       }, 2000);
@@ -388,38 +400,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Helper to load and render documents
   async function loadDocuments() {
-    const { cachedDocuments } = await chrome.storage.local.get('cachedDocuments');
-    if (cachedDocuments && Array.isArray(cachedDocuments) && cachedDocuments.length > 0) {
-      currentDocuments = cachedDocuments;
-    } else {
-      // Seed default sample documents if empty
-      currentDocuments = [
-        {
-          id: 'doc_resume',
-          name: 'Principal_FullStack_Resume.pdf',
-          originalFilename: 'Principal_FullStack_Resume.pdf',
-          mimeType: 'application/pdf',
-          sizeBytes: 184000,
-          description: 'Comprehensive software engineering credentials, work history, education, GPA, and contact information.',
-          isEnabled: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        },
-        {
-          id: 'doc_tax_cert',
-          name: 'W9_Vendor_Tax_Profile.pdf',
-          originalFilename: 'W9_Vendor_Tax_Profile.pdf',
-          mimeType: 'application/pdf',
-          sizeBytes: 96000,
-          description: 'Official tax identification, legal name, business address, and compliance classification.',
-          isEnabled: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ];
-      await chrome.storage.local.set({ cachedDocuments: currentDocuments });
+    try {
+      const synced = await syncDocumentsApi();
+      if (synced?.success) {
+        currentDocuments = synced.documents || [];
+        renderDocuments();
+        return;
+      }
+    } catch (err) {
+      console.warn('Initial sync failed:', err);
     }
 
+    const { cachedDocuments } = await chrome.storage.local.get('cachedDocuments');
+    currentDocuments = Array.isArray(cachedDocuments) ? cachedDocuments : [];
     renderDocuments();
   }
 

@@ -8,7 +8,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
-import { objectStorageConfig } from './env';
+import { objectStorageConfig, runtimeEnv } from './env';
 
 export type StorageDriver = 's3' | 'disk';
 
@@ -24,16 +24,19 @@ let preferDisk = false;
 
 function s3(): S3Client {
   if (!client) {
+    const credentials = objectStorageConfig.accessKeyId && objectStorageConfig.secretAccessKey
+      ? {
+          accessKeyId: objectStorageConfig.accessKeyId,
+          secretAccessKey: objectStorageConfig.secretAccessKey,
+        }
+      : undefined;
     client = new S3Client({
       region: objectStorageConfig.region,
-      endpoint: objectStorageConfig.endpoint,
+      endpoint: objectStorageConfig.endpoint || undefined,
       forcePathStyle: objectStorageConfig.forcePathStyle,
       requestChecksumCalculation: 'WHEN_REQUIRED',
       responseChecksumValidation: 'WHEN_REQUIRED',
-      credentials: {
-        accessKeyId: objectStorageConfig.accessKeyId,
-        secretAccessKey: objectStorageConfig.secretAccessKey,
-      },
+      credentials,
     });
   }
   return client;
@@ -65,6 +68,9 @@ export async function putKbObject(key: string, body: Buffer, contentType: string
       }));
       return { bucket: objectStorageConfig.bucket, key, driver: 's3' };
     } catch (err) {
+      if (runtimeEnv('NODE_ENV') === 'production' && !runtimeEnv('S3_ENDPOINT')) {
+        throw err;
+      }
       console.warn('[object-store] S3 put failed, writing to local disk', err);
       preferDisk = true;
       bucketReady = false;
