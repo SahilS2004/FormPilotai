@@ -26,7 +26,7 @@ export default function RootLayout({
               (function() {
                 try {
                   var path = location.pathname;
-                  if (path === '/' || path === '/login') {
+                  if (path === '/' || path === '/login' || path === '/blog') {
                     document.documentElement.classList.remove('dark');
                     return;
                   }

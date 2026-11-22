@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FormPilot AI — what it is, and how a form actually gets filled</title>
+  <meta name="description" content="A walk through FormPilot AI: the knowledge base, the Chrome extension, document drafting, and the multi-site fleet." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,620&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy: #11264f;
+      --ink: #1c2434;
+      --muted: #5c6b82;
+      --line: #e4ebf5;
+      --paper: #f7f5f0;
+      --card: #ffffff;
+      --cyan: #0aa3ad;
+      --cyan-soft: #e7f7f8;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: Outfit, "Segoe UI", sans-serif;
+      font-size: 18px;
+      line-height: 1.7;
+    }
+    a { color: var(--navy); }
+    header.top {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: rgba(247, 245, 240, 0.92);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+    }
+    .top-inner, .wrap, figure, .note {
+      width: min(760px, calc(100% - 40px));
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .top-inner {
+      height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .top img { height: 28px; width: auto; }
+    .top span { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+    article { padding: 56px 0 96px; }
+    .kicker {
+      display: inline-block;
+      margin: 0 0 16px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--cyan-soft);
+      color: #08656c;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    h1 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: clamp(40px, 6vw, 64px);
+      line-height: 1.05;
+      font-weight: 620;
+      letter-spacing: -0.03em;
+      color: var(--navy);
+      margin: 0 0 18px;
+    }
+    .dek { font-size: 21px; color: #3d4b63; margin: 0 0 22px; }
+    .meta { color: var(--muted); font-size: 14px; margin: 0 0 36px; }
+    h2 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: 32px;
+      line-height: 1.2;
+      color: var(--navy);
+      margin: 52px 0 12px;
+      letter-spacing: -0.02em;
+    }
+    h3 { font-size: 18px; margin: 28px 0 6px; color: var(--navy); }
+    p { margin: 0 0 16px; }
+    ol, ul { margin: 0 0 16px; padding-left: 22px; }
+    li { margin: 0 0 8px; }
+    figure {
+      width: min(980px, calc(100% - 32px));
+      margin: 28px auto 8px;
+    }
+    figure img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 16px;
+      border: 1px solid #d9e2ef;
+      box-shadow: 0 18px 50px rgba(17, 38, 79, 0.08);
+      background: white;
+    }
+    figcaption {
+      width: min(760px, 100%);
+      margin: 10px auto 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .steps { list-style: none; padding: 0; margin: 8px 0 20px; }
+    .steps li {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 12px;
+      margin: 0 0 14px;
+    }
+    .num {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--navy);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .note {
+      background: white;
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--cyan);
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin: 22px auto;
+    }
+    .note strong { color: var(--navy); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+      margin: 8px 0 20px;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { background: var(--navy); color: white; font-weight: 500; }
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 28px 0 40px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="top-inner">
+      <img src="images/logo-wordmark.png" alt="FormPilot AI" />
+      <span>Project notes</span>
+    </div>
+  </header>
+
+  <article>
+    <div class="wrap">
+      <p class="kicker">InnovChromatic · November 2026</p>
+      <h1>A form should already know who you are.</h1>
+      <p class="dek">FormPilot AI keeps a resume, a profile, and the answers you have already given, then uses them to fill the form that is open in the browser. This is the full path: what gets stored, how a single page is answered, how a missing cover letter is drafted, and how a list of sites becomes a batch you can read afterwards.</p>
+      <p class="meta">Sahil Sarawgi · a walk through the live product at formpilot.innovchromatic.tech</p>
+    </div>
+
+    <figure>
+      <img src="images/formpilot-home.png" alt="FormPilot AI home page, with the headline about filling web forms from a knowledge base and a preview of the side panel." />
+      <figcaption>The public home page. The card under the headline is a preview of the in-page copilot: fields, confidence, and the documents that are allowed to answer.</figcaption>
+    </figure>
+
+    <div class="wrap">
+      <h2>What the project is</h2>
+      <p>FormPilot is two programs that share one brain. The website is the control room. You keep documents there, turn them on or off, set reminders, read past fills, and launch a batch across several URLs. The Chrome extension is the hand on the page. It reads the form you are looking at and writes the answers back into the real inputs.</p>
+      <p>It is meant for facts that already exist somewhere you trust: your name, a phone number, a project link, the resume that matches a developer role, a cover letter you already accepted for a company. When the knowledge base has nothing that supports a question, the field stays blank. Passwords, card numbers, and government ID numbers are not stored.</p>
+      <p>The web app is Next.js. Files sit in a private S3 bucket. Text and vectors sit in Postgres with pgvector. Answers and embeddings come from Gemini. When a letter needs a look at the company, that research goes through Tavily. The extension is a separate Chrome package. Reloading it means loading the unpacked build in <code>apps/extension/dist</code>. A deploy of the website does not update the extension.</p>
+
+      <h2>The knowledge base</h2>
+      <p>Every answer is supposed to start from a document you uploaded or from a fact you already confirmed. A PDF is read into text, including the words behind a hyperlink, then split into chunks and embedded. The vectors sit beside the document rows so a question can find the passage that actually mentions the fact. The original file stays in S3 so a resume upload can attach that file, not a retyped summary of it.</p>
+      <p>Each document has a short description. That description is how a resume marked “only for my dev roles” can be chosen on an engineering application instead of a different resume in the same library. A document can be switched off. Off means the next fill cannot see it. The welcome profile — name, email, phone, address — is its own small document, so those fields do not depend on a resume happening to mention them.</p>
+      <p>Search is both a vector search and a keyword search. The vector search finds a passage that is about the question even when the wording differs. The keyword search catches exact tokens such as a phone number, a city, or a skill name. Past fills are added as question-and-answer lines. The website, the URL, and the page title are left out, so an old login screen cannot leak into a job application.</p>
+    </div>
+
+    <figure>
+      <img src="images/formpilot-knowledge-base.png" alt="FormPilot knowledge base showing a cover letter, two resumes, and the basic profile document, each marked active." />
+      <figcaption>The workspace knowledge base. Four documents are active: a generated cover letter, two resumes, and the basic profile.</figcaption>
+    </figure>
+
+    <div class="wrap">
+      <h2>How one form gets filled</h2>
+      <p>You open a form, then open FormPilot from the floating button. That button toggles the Chrome side panel on the same tab. It does not open a new window. The content script reads only the fields that are on the screen: labels, text boxes, radios, selects, and file inputs. A wizard is filled one step at a time, because the next step is not in the page yet. You run fill again after you move forward.</p>
+      <ol class="steps">
+        <li><span class="num">1</span><span>The page schema is sent to <code>/api/fill-form</code>. Questions are embedded together, then matched with vector search and a keyword search.</span></li>
+        <li><span class="num">2</span><span>Past fills are added as question-and-answer lines. The site name, URL, and page title are left out, so an old login page cannot leak into a job application.</span></li>
+        <li><span class="num">3</span><span>One Gemini call answers the page. A choice has to match a real option. “1–2 years”, “1-2 years”, and “1.5 years” can land on the same radio.</span></li>
+        <li><span class="num">4</span><span>The extension writes each value and fires the input events the page’s own framework expects. A hidden file input receives the PDF, so the site’s upload control updates.</span></li>
+      </ol>
+      <p>A passport, a photo, or a certificate stays empty. Those are not documents FormPilot should invent. A cover letter or a proposal is different: if the library does not already have one, a second agent can draft it.</p>
+      <h2>Drafting a document</h2>
+      <p>The other questions on the page are filled first. Then the page blurs and tells you which document it is making. There is no extra confirmation step before the draft starts. Tavily looks up the company. Gemini writes three to five paragraphs in the first person and is not allowed to invent a job that is not in the knowledge base. You can preview the PDF, accept it, or reject it.</p>
+      <p>Accept is the only moment the file is stored. The PDF is written to S3, a knowledge-base row is created, and the text is indexed so the next form can attach that same letter. Reject clears the draft. It never becomes a document. The overlay lives on the page, and the extension asks the background script to call the API, because a content script is not allowed to call another origin directly.</p>
+      <h2>The demo form</h2>
+      <p>The site includes a career-style form so the whole loop can be tried without leaving FormPilot. It has a name, contact details, links, a job title, years, a work-arrangement select, a work-authorization checkbox, a relocation radio, two long answers, and a resume upload. A complete run fills the facts the knowledge base actually has and attaches the developer resume. The long answers are written from that material. A field with no supporting fact is left alone.</p>
+    </div>
+
+    <figure>
+      <img src="images/formpilot-demo-form.png" alt="FormPilot demo form, a senior full-stack engineer application with personal details, experience, written questions, and a resume upload." />
+      <figcaption>The built-in demo form. It is a normal page the extension can read: text, a select, radios, a checkbox, two long answers, and a resume upload.</figcaption>
+    </figure>
+
+    <div class="wrap">
+      <h2>Many sites, one batch</h2>
+      <p>The fleet is the same fill, pointed at a list of addresses instead of the tab you are looking at. You paste one URL per line and launch the runner. The server fetches each page. A normal HTML form is read from its inputs. A client-side wizard that only renders the first step still has the rest of its fields in the page data, and those fields are used. A single-page site with no inputs in the first HTML is read from the script that draws the form.</p>
+      <p>Sites are handled one after another, because each page is a model call. While a batch is running, the dashboard polls and updates the cards. A finished card shows the status, how many fields were answered, the average confidence, and the question-and-answer list. That list is the recent history of the run.</p>
+      <p>The fleet does not submit the other website. It records the answers FormPilot would use. A checkbox on the runner can also save a row into FormPilot history when the average confidence is at least 90 percent. That row is still inside FormPilot. It is not an HTTP post to the job application, the contact form, or a public form host.</p>
+    </div>
+
+    <figure>
+      <img src="images/formpilot-fleet.png" alt="FormPilot bulk runner with a list of form URLs and recent batch cards showing filled fields and confidence." />
+      <figcaption>A real batch. The runner visited the demo form, a job application, a Jotform, and a contact page, then stored the answers on the batch card.</figcaption>
+    </figure>
+
+    <div class="wrap">
+      <h2>The rest of the workspace</h2>
+      <h3>Reminders</h3>
+      <p>A reminder is a form you still owe. The server checks reminders while the app is running. The extension can show one, and it stays up until you mark it read. Closing it only hides it until the next check.</p>
+      <h3>History</h3>
+      <p>History is the set of fills that were saved as submissions. Later fills may reuse those question-and-answer lines. They do not reuse the site name or the page title. The History tab and the batch cards are different lists. The batch card is the log of a fleet run. History is the log of fills you chose to keep.</p>
+      <h3>Tone</h3>
+      <p>Tone changes how a paragraph is written: requesting, factual, professional, or casual. It does not give the model permission to invent a year of experience, a company, or a date that is not in the documents.</p>
+
+      <h2>Where it runs</h2>
+      <table>
+        <thead>
+          <tr><th>Piece</th><th>What it does</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Web app</td><td>Next.js on Fargate, behind a load balancer, at formpilot.innovchromatic.tech</td></tr>
+          <tr><td>Database</td><td>Postgres 16 with pgvector, private to the network. Documents, answers, jobs, and batches live here.</td></tr>
+          <tr><td>Files</td><td>Encrypted S3. A drafted PDF is uploaded only after you accept it.</td></tr>
+          <tr><td>Model</td><td>Gemini answers the page and builds the embeddings. Tavily is used when a letter needs company research.</td></tr>
+          <tr><td>Extension</td><td>Chrome Manifest V3. The side panel calls the API. The content script talks to the page through the background script.</td></tr>
+        </tbody>
+      </table>
+      <p>Turning the system off stops the web tasks and the database. The load balancer stays, so the domain does not have to be pointed somewhere new when the system comes back. A stopped database starts itself again after seven days.</p>
+
+      <h2>What a good fill looks like</h2>
+      <p>On the demo form, a complete run can fill the name, the email, the phone, the city, the profile links, the title, the years, the work arrangement, relocation, a short reason, a skills paragraph, and the developer resume. On a job form that also asks for a cover letter, the saved letter is attached instead of starting a new draft, and an experience radio resolves to the closest range the documents support. Optional questions with no supporting fact stay blank.</p>
+      <p>That is the whole loop. Documents in, a page read, one grounded answer, and a person still in charge of the final submit.</p>
+    </div>
+  </article>
+
+  <footer>
+    <div class="wrap">FormPilot AI · InnovChromatic. Screenshots are from the live workspace on 22 November 2026. Open this file in a browser. The images sit in the <code>images</code> folder beside it.</div>
+  </footer>
+</body>
+</html>

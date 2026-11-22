@@ -54,6 +54,7 @@ export default function LandingPage() {
           <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-slate-600">
             <a href="#features" className="hover:text-navy-800 transition">Features</a>
             <a href="#how-it-works" className="hover:text-navy-800 transition">How It Works</a>
+            <Link href="/blog" className="hover:text-navy-800 transition">Blog</Link>
             <a href="#security" className="hover:text-navy-800 transition">Security & Privacy</a>
           </nav>
 
@@ -104,6 +105,13 @@ export default function LandingPage() {
               >
                 How It Works
               </a>
+              <Link 
+                href="/blog" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="hover:text-navy-800 py-1"
+              >
+                Blog
+              </Link>
               <a 
                 href="#security" 
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -570,6 +578,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-5 text-xs font-semibold text-slate-500">
             <a href="https://www.innovchromatic.tech" target="_blank" rel="noopener noreferrer" className="text-cyan-700 hover:underline">InnovChromatic</a>
+            <Link href="/blog" className="hover:text-navy-800 transition">Blog</Link>
             <Link href="/login" className="hover:text-navy-800 transition">Sign In</Link>
             <Link href="/dashboard" className="hover:text-navy-800 transition">Workspace</Link>
           </div>
